@@ -12,6 +12,7 @@ system('rsync -a builds/ builds-artifacts/') or raise('Could not copy builds to 
 
 data = JSON.parse(open('source/data.json').read)
 version = data.dig('version', 'ref')
+stack = ENV.fetch('STACK')
 url = data.dig('version', 'url')
 name = data.dig('source', 'name')
 build = JSON.parse(open("builds/binary-builds-new/#{name}/#{version}.json").read)
@@ -54,7 +55,7 @@ when 'pipenv'
     sha256: sha,
     url: "https://buildpacks.cloudfoundry.org/dependencies/#{name}/#{filename}"
   })
-when 'CAAPM', 'appdynamics'
+when 'CAAPM', 'appdynamics' #third party vendors
   res = open(url).read
   sha = Digest::SHA256.hexdigest(res)
   if data.dig('version', 'md5_digest') && Digest::MD5.hexdigest(res) != data.dig('version', 'md5_digest')
@@ -230,8 +231,8 @@ Dir.chdir('builds-artifacts') do
   GitClient.set_global_config('user.email', 'cf-buildpacks-eng@pivotal.io')
   GitClient.set_global_config('user.name', 'CF Buildpacks Team CI Server')
 
-  File.write("binary-builds-new/#{name}/#{version}.json", out_data.to_json)
+  File.write("binary-builds-new/#{name}/#{version}-#{stack}.json", out_data.to_json)
 
-  GitClient.add_file("binary-builds-new/#{name}/#{version}.json")
-  GitClient.safe_commit("Build #{name} - #{version} [##{tracker_story_id}]")
+  GitClient.add_file("binary-builds-new/#{name}/#{version}-#{stack}.json")
+  GitClient.safe_commit("Build #{name} - #{version} - #{stack} [##{tracker_story_id}]")
 end

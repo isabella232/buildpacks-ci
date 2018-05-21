@@ -12,46 +12,59 @@ manifest_master = YAML.load_file('buildpack-master/manifest.yml') # rescue { 'de
 data = JSON.parse(open('source/data.json').read)
 name = data.dig('source', 'name')
 version = data.dig('version', 'ref')
-build = JSON.parse(open("builds/binary-builds-new/#{name}/#{version}.json").read)
-story_id = build['tracker_story_id']
 
 system('rsync -a buildpack/ artifacts/')
 raise('Could not copy buildpack to artifacts') unless $?.success?
 
-dep = { "name" => name, "version" => version, "uri" => build['url'], "sha256" => build['sha256'], "cf_stacks" => ['cflinuxfs2']}
-
-old_versions = manifest['dependencies'].select { |d| d['name'] == name }.map { |d| d['version'] }
-manifest['dependencies'] = Dependencies.new(dep, ENV['VERSION_LINE'], ENV['KEEP_MASTER'], manifest['dependencies'], manifest_master['dependencies']).switch
-new_versions = manifest['dependencies'].select { |d| d['name'] == name }.map { |d| d['version'] }
-
-added = (new_versions - old_versions).uniq.sort
-removed = (old_versions - new_versions).uniq.sort
-rebuilt = old_versions.include?(version)
-
-if added.length == 0 && !rebuilt
-  puts 'SKIP: Built version is not required by buildpack.'
-  exit 0
-end
-
-path_to_extensions = 'extensions/appdynamics/extension.py'
+added = []
+removed = []
+rebuilt = []
+story_id = JSON.parse(open("builds/binary-builds-new/#{name}/#{version}.json").read)['tracker_story_id']
 write_extensions = ''
-if !rebuilt && name == 'appdynamics' && manifest['language'] == 'php'
-  if removed.length == 1 && added.length == 1
-    text = File.read('buildpack/' + path_to_extensions)
-    write_extensions = text.gsub(/#{Regexp.quote(removed.first)}/, added.first)
-  else
-   puts 'Expected to have one added version and one removed version for appdynamics in the PHP buildpack.'
-   puts 'Got added (#{added}) and removed (#{removed}).'
-   exit 1
+
+Dir["builds/binary-builds-new/#{name}/#{version}-*.json"].each do |stack_dependency_build|
+  stack = %r{-(.*)\.json$}.match(stack_dependency_build)[1]
+
+  build = JSON.parse(open(stack_dependency_build).read)
+
+  dep = { "name" => name, "version" => version, "uri" => build['url'], "sha256" => build['sha256'], "cf_stacks" => [stack]}
+
+  old_versions = manifest['dependencies'].select { |d| d['name'] == name }.map { |d| {'version' => d['version'], 'stacks' => d['cf_stacks'] } }
+  manifest['dependencies'] = Dependencies.new(dep, ENV['VERSION_LINE'], ENV['KEEP_MASTER'], manifest['dependencies'], manifest_master['dependencies']).switch
+  new_versions = manifest['dependencies'].select { |d| d['name'] == name }.map { |d| {'version' => d['version'], 'stacks' => d['cf_stacks'] } }
+
+  added += (new_versions - old_versions).uniq.sort
+  removed += (old_versions - new_versions).uniq.sort
+  rebuilt += old_versions.select {|d| d['version'] && d['stacks'].include?(stack) }
+
+  if added.length == 0 && rebuilt.length == 0
+    puts 'SKIP: Built version is not required by buildpack.'
+    exit 0
   end
 end
 
-commit_message = "Add #{name} #{version}"
-if rebuilt
-  commit_message = "Rebuild #{name} #{version}"
+### TODO: Figure out when handling deps with multiple stacks
+path_to_extensions = 'extensions/appdynamics/extension.py'
+if !rebuilt.length && name == 'appdynamics' && manifest['language'] == 'php'
+  if removed.length == 1 &&  added.length == 1
+    text = File.read('buildpack/' + path_to_extensions)
+    write_extensions = text.gsub(/#{Regexp.quote(removed.first)}/, added.first)
+  else
+    puts 'Expected to have one added version and one removed version for appdynamics in the PHP buildpack.'
+    puts 'Got added (#{added}) and removed (#{removed}).'
+    exit 1
+  end
+end
+
+added_stacks = added.map{|d| d['stacks']}.flatten.join(', ')
+commit_message = "Add #{name} #{version} for stacks #{added_stacks}"
+if rebuilt.length > 0
+  rebuilt_stacks = rebuilt.map{|d| d['stacks']}.flatten.join(', ')
+  commit_message = "Rebuild #{name} #{version} for stacks #{rebuilt_stacks}"
 end
 if removed.length > 0
-  commit_message = "#{commit_message}, remove #{name} #{removed.join(', ')}"
+  removed_stacks = removed.map{|d| d['stacks']}.flatten.join(', ')
+  commit_message = "#{commit_message}, remove #{name} #{removed.join(', ')} for stacks #{removed_stacks}"
 end
 
 Dir.chdir('artifacts') do

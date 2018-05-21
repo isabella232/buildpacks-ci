@@ -5,7 +5,7 @@ class Dependencies
     @keep_master = keep_master
     @dependencies = dependencies
     @matching_deps = dependencies.select do |d|
-      d['name'] == @dep['name'] && same_line?(d['version'])
+      d['name'] == @dep['name'] && d['stack'] == @dep['stack'] && same_line?(d['version'])
     end
     @master_dependencies = master_dependencies
   end
@@ -21,7 +21,7 @@ class Dependencies
     end
     out.sort_by do |d|
       version = Gem::Version.new(d['version']) rescue d['version']
-      [ d['name'], version ]
+      [ d['name'], version, d['stack'] ]
     end
   end
 
@@ -55,24 +55,9 @@ class Dependencies
   def master_dependencies
     return [] unless @keep_master == 'true'
     dep = @master_dependencies.select do |d|
-      d['name'] == @dep['name'] && same_line?(d['version'])
+      d['name'] == @dep['name'] && d['stack'] == @dep['stack'] && same_line?(d['version'])
     end.sort_by { |d| Gem::Version.new(d['version']) rescue d['version'] }.last
     dep ? [dep] : []
   end
 end
 
-# old_version = nil
-# manifest['dependencies'].each do |dep|
-#   next unless dep['name'] == name
-#   raise "Found a second entry for #{name}" if old_version
-
-#   old_version = dep['version']
-#   dep['version'] = build['version']
-#   dep['uri'] = build['url']
-#   dep['sha256'] = build['sha256']
-# end
-
-# if Gem::Version.new(build['version']) < Gem::Version.new(old_version)
-#   puts 'SKIP: Built version is older than current version in buildpack.'
-#   exit 0
-# end

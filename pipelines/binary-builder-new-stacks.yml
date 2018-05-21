@@ -1,0 +1,314 @@
+<% dependencies = {
+  appdynamics: { buildpacks: { php: {} }, third_party_hosted: true },
+  CAAPM: { buildpacks: { php: {} }, third_party_hosted: true, source_type: 'ca_apm_agent' },
+  go: { buildpacks: { go: { lines: ["1.6.X", "1.7.X", "1.8.X", "1.9.X", "1.10.X"], keep_master: true } } },
+  httpd: { buildpacks: { php: {} } },
+  nginx: { buildpacks: { nginx: { lines: ["1.13.X", "1.14.X"], keep_master: true } } },
+  pip: { buildpacks: { python: {} }, source_type: 'pypi'},
+  pipenv: { buildpacks: { python: {} }, source_type: 'pypi'},
+  python: { buildpacks: { python: { lines: ["2.7.X", "3.3.X", "3.4.X", "3.5.X", "3.6.X"], keep_master: true } } },
+  r: { buildpacks: { r: { lines: ["3.4.X"], keep_master: true } } },
+  ruby: { buildpacks: { ruby: { lines: ["2.2.X", "2.3.X", "2.4.X", "2.5.X"], keep_master: true } } },
+  rubygems: { buildpacks: { ruby: {} }, source_type: 'rubygems_cli'},
+  setuptools: { buildpacks: { python: {}}, source_type: 'pypi'},
+  yarn: { buildpacks: { nodejs: {}, ruby: {} }, source_type: 'github_releases', source_params: ['repo: yarnpkg/yarn']}
+}
+
+stacks = ['cflinuxfs2', 'cflinuxfs3']
+
+def validate_dependencies(deps)
+  deps.each do |dep_name, dep|
+    if !(dep[:buildpacks].values.all? {|bp| bp[:lines].nil? } || dep[:buildpacks].values.all? {|bp| bp[:lines] })
+      raise "For #{dep_name}, mixing buildpacks that specify version lines and ones that do not is NOT currently supported"
+    end
+
+    if dep[:buildpacks].values.flat_map { |bp| (bp[:lines] || []).map {|l| l.count('X') } }.uniq.length > 1
+      raise "For #{dep_name}, overlapping version lines are not supported (e.g. 1.X.X and 1.2.X)"
+    end
+  end
+end
+
+validate_dependencies(dependencies)
+
+def is_multiline?(dep)
+  dep[:buildpacks].values.any? { |bp| bp[:lines] }
+end
+
+def get_version_line_type(lines)
+  return nil if lines.nil?
+
+  case lines.first.split('.').index('X')
+  when 1
+    'major'
+  when 2
+    'minor'
+  else
+    nil
+  end
+end
+%>
+
+resource_types:
+- name: depwatcher
+  type: docker-image
+  source:
+    repository: cfbuildpacks/depwatcher
+resources:
+- name: binary-builder
+  type: git
+  source:
+    uri: {{binary-builder-git-uri}}
+- name: buildpacks-ci
+  type: git
+  source:
+    uri: {{buildpacks-ci-git-uri-public}}
+    branch: wip-stacks-144938923
+- name: builds
+  type: git
+  source:
+    uri: git@github.com:cloudfoundry/public-buildpacks-ci-robots
+    branch: wip-stacks-144938923
+    paths: [ binary-builds-new/ ]
+    private_key: {{public-buildpacks-ci-robots-private-key}}
+
+<% stacks.each do |stack| %>
+- name: <%= stack %>-image
+  type: docker-image
+  source: {repository: cloudfoundry/<%= stack %>}
+<% end %>
+
+<% dependencies.values.map{|dep| dep[:buildpacks].keys}.flatten.uniq.each do |buildpack| %>
+- name: <%= buildpack %>-buildpack
+  type: git
+  source:
+    uri: git@github.com:cloudfoundry/<%= buildpack %>-buildpack.git
+    private_key: {{<%= buildpack %>-buildpack-private-key}}
+    branch: develop
+- name: <%= buildpack %>-buildpack-master
+  type: git
+  source:
+    uri: git@github.com:cloudfoundry/<%= buildpack %>-buildpack.git
+    private_key: {{<%= buildpack %>-buildpack-private-key}}
+    branch: master
+<% end %>
+
+<% dependencies.each do |dep_name, dep| %>
+<%
+  lines = dep[:buildpacks].values.reduce([]) {|sum, bp| sum | (bp[:lines] || [])}
+  lines.push('latest')
+  lines.each do |line|
+%>
+- name: source-<%=dep_name%>-<%= line %>
+  type: depwatcher
+  check_every: 1h
+  source:
+    type: <%= dep[:source_type] || dep_name %>
+    name: <%= dep_name %>
+    <% if line != 'latest' %>
+    version_filter: <%= line %>
+    <% end %>
+    <% (dep[:source_params] || []).each do |param| %>
+    <%= param %>
+    <% end %>
+<% end %>
+
+<% if !dep[:third_party_hosted] %>
+- name: buildpacks-bucket-<%=dep_name%>
+  type: s3
+  source:
+    bucket: {{buildpacks-binaries-s3-bucket}}
+    access_key_id: {{pivotal-buildpacks-s3-access-key}}
+    secret_access_key: {{pivotal-buildpacks-s3-secret-key}}
+    regexp: dependencies/<%=dep_name%>/<%=dep_name%>.*(\d+.\d+.\d+)(.*)
+<% end %>
+<% end %>
+
+jobs:
+<% dependencies.each do |dep_name, dep| %>
+<%
+  version_lines = dep[:buildpacks].values.reduce([]) {|sum, bp| sum | (bp[:lines] || [])}
+  version_lines = ['latest'] if version_lines.empty?
+%>
+<% if is_multiline?(dep) %>
+- name: create-<%= dep_name %>-new-line-story
+  serial: true
+  public: true
+  plan:
+  - aggregate:
+    - get: buildpacks-ci
+    - get: source
+      resource: source-<%= dep_name %>-latest
+      trigger: true
+      version: every
+  - do:
+    - task: create-tracker-story
+      file: buildpacks-ci/tasks/build-binary-new/create-new-version-line.yml
+      params:
+        TRACKER_PROJECT_ID: {{cf-buildpacks-public-tracker-id}}
+        TRACKER_REQUESTER_ID: {{cf-buildpacks-requester-id}}
+        TRACKER_API_TOKEN: {{pivotal-tracker-api-token}}
+        BUILDPACKS: <%= dep[:buildpacks].keys.join(' ') %>
+        EXISTING_VERSION_LINES: <%= version_lines.join(' ') %>
+<% end %>
+
+<% version_lines.each do |line| %>
+- name: create-<%=dep_name%>-<%= line %>-story
+  serial: true
+  public: true
+  plan:
+  - aggregate:
+    - get: buildpacks-ci
+    - get: source
+      resource: source-<%=dep_name%>-<%= line %>
+      trigger: true
+      version: every
+    - get: builds
+  - do:
+    - task: create-tracker-story
+      file: buildpacks-ci/tasks/build-binary-new/create.yml
+      params:
+        TRACKER_PROJECT_ID: {{cf-buildpacks-public-tracker-id}}
+        TRACKER_REQUESTER_ID: {{cf-buildpacks-requester-id}}
+        TRACKER_API_TOKEN: {{pivotal-tracker-api-token}}
+        BUILDPACKS: <%= dep[:buildpacks].keys.join(' ') %>
+    - put: builds
+      params:
+        repository: builds-artifacts
+        rebase: true
+
+- name: finish-<%=dep_name%>-<%= line %>-story
+  serial: true
+  public: true
+  plan:
+  - aggregate:
+    - get: buildpacks-ci
+    - get: source
+      resource: source-<%=dep_name%>-<%= line %>
+      trigger: true
+      version: every
+      passed:
+      <% dep[:buildpacks].each do |bp_name, _| %>
+      - update-<%=dep_name%>-<%= line %>-<%= bp_name %>
+      <% end %>
+    - get: builds
+  - do:
+    - task: finish-<%=dep_name%>-<%= line %>-story
+      file: buildpacks-ci/tasks/build-binary-new/finish.yml
+      params:
+        TRACKER_API_TOKEN: {{pivotal-tracker-api-token}}
+        TRACKER_PROJECT_ID: {{cf-buildpacks-public-tracker-id}}
+
+- name: build-<%=dep_name%>-<%= line %>
+  serial: true
+  public: true
+  plan:
+  - aggregate:
+    - get: buildpacks-ci
+    - get: binary-builder
+    <% stacks.each do |stack| %>
+    - get: <%= stack %>-image
+    <% end %>
+    - get: source
+      resource: source-<%=dep_name%>-<%= line %>
+      trigger: true
+      version: every
+      passed: [ create-<%=dep_name%>-<%= line %>-story ]
+    - get: builds
+  - do:
+    - aggregate:
+      <% stacks.each do |stack| %>
+      - do:
+        - task: build-binary-<%= stack %>
+          image: <%= stack %>-image
+          file: buildpacks-ci/tasks/build-binary-new/build.yml
+          output_mapping: {artifacts: <%= stack %>-artifacts, builds-artifacts: <%= stack %>-builds-artifacts}
+          params:
+            STACK: <%= stack %>
+        <% if !dep[:third_party_hosted] %>
+        - put: buildpacks-bucket-<%=dep_name%>
+          params:
+            file: <%= stack %>-artifacts/<%=dep_name%>*
+        <% end %>
+        - put: builds
+          params:
+            repository: <%= stack %>-builds-artifacts
+            rebase: true
+      <% end %>
+<% end %>
+
+<% dep[:buildpacks].each do |bp_name, bp| %>
+  <% (bp[:lines] || ['latest']).each do |line| %>
+- name: update-<%=dep_name%>-<%= line %>-<%= bp_name %>
+  serial: true
+  public: true
+  plan:
+  - aggregate:
+    - get: buildpack
+      resource: <%= bp_name %>-buildpack
+    - get: buildpack-master
+      resource: <%= bp_name %>-buildpack-master
+    - get: buildpacks-ci
+    - get: source
+      resource: source-<%=dep_name%>-<%= line %>
+      passed: [build-<%=dep_name%>-<%= line %>]
+      version: every
+      trigger: true
+    - get: builds
+  - do:
+    - task: update-buildpack-dependency
+      file: buildpacks-ci/tasks/update-buildpack-dependency/task.yml
+      params:
+        VERSION_LINE: <%= get_version_line_type(bp[:lines]) %>
+        KEEP_MASTER: <%= bp[:keep_master] %>
+#    - put: <%= bp_name %>-buildpack
+#      params:
+#        repository: artifacts
+#        rebase: true
+  <% end %>
+<% end %>
+<% end %>
+
+groups:
+  - name: all
+    jobs:
+    <% dependencies.each do |dep_name, dep| %>
+    <%
+      version_lines = dep[:buildpacks].values.reduce([]) {|sum, bp| sum | (bp[:lines] || [])}
+      version_lines = ['latest'] if version_lines.empty?
+    %>
+    <% if is_multiline?(dep) %>
+    - create-<%= dep_name %>-new-line-story
+    <% end %>
+    <% version_lines.each do |line| %>
+    - create-<%=dep_name%>-<%= line %>-story
+    - finish-<%=dep_name%>-<%= line %>-story
+    - build-<%=dep_name%>-<%= line %>
+    <% end %>
+    <% dep[:buildpacks].each do |bp_name, bp| %>
+    <% (bp[:lines] || ['latest']).each do |line| %>
+    - update-<%=dep_name%>-<%= line %>-<%= bp_name %>
+    <% end %>
+    <% end %>
+    <% end %>
+
+<% dependencies.each do |dep_name, dep| %>
+<%
+  version_lines = dep[:buildpacks].values.reduce([]) {|sum, bp| sum | (bp[:lines] || [])}
+  version_lines = ['latest'] if version_lines.empty?
+%>
+  - name: <%= dep_name %>
+    jobs:
+    <% if is_multiline?(dep) %>
+    - create-<%= dep_name %>-new-line-story
+    <% end %>
+    <% version_lines.each do |line| %>
+    - create-<%=dep_name%>-<%= line %>-story
+    - finish-<%=dep_name%>-<%= line %>-story
+    - build-<%=dep_name%>-<%= line %>
+    <% end %>
+    <% dep[:buildpacks].each do |bp_name, bp| %>
+    <% (bp[:lines] || ['latest']).each do |line| %>
+    - update-<%=dep_name%>-<%= line %>-<%= bp_name %>
+    <% end %>
+    <% end %>
+<% end %>
