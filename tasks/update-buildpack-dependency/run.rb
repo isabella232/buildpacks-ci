@@ -174,13 +174,17 @@ if rebuilt.empty? && manifest_name == 'jruby' && manifest['language'] == 'ruby'
   end
 end
 
-commit_message = "Add #{manifest_name} #{resource_version} for #{added.map { |d| d['cf_stacks'] }.flatten.join(', ')}"
+commit_message_parts = []
+if !added.empty?
+  commit_message_parts << "add #{manifest_name} #{resource_version} for #{added.map { |d| d['cf_stacks'] }.flatten.join(', ')}"
+end
 if !rebuilt.empty?
-  commit_message = "Rebuild #{manifest_name} #{resource_version} for #{rebuilt.join(', ')}"
+  commit_message_parts << "rebuild #{manifest_name} #{resource_version} for #{rebuilt.join(', ')}"
 end
 if !removed.empty?
-  commit_message = "#{commit_message}, remove #{manifest_name} #{removed.join(', ')} for #{removed.map { |d| d['cf_stacks'] }.flatten.join(', ')}"
+  commit_message_parts << "remove #{manifest_name} #{removed.join(', ')} for #{removed.map { |d| d['cf_stacks'] }.flatten.join(', ')}"
 end
+commit_message = commit_message_parts.join(", ")
 
 Dir.chdir('artifacts') do
   GitClient.set_global_config('user.email', 'cf-buildpacks-eng@pivotal.io')
