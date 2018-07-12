@@ -184,7 +184,7 @@ end
 if !removed.empty?
   commit_message_parts << "remove #{manifest_name} #{removed.map { |d| d[:version] }.join(', ')} for #{removed.map { |d| d[:stack] }.join(', ')}"
 end
-commit_message = commit_message_parts.join(", ")
+commit_message = commit_message_parts.join("; ")
 
 Dir.chdir('artifacts') do
   GitClient.set_global_config('user.email', 'cf-buildpacks-eng@pivotal.io')
