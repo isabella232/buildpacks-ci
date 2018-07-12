@@ -53,8 +53,8 @@ Dir["builds/binary-builds-new/#{source_name}/#{resource_version}-*.json"].each d
                  .select { |d| d['name'] == manifest_name && d['cf_stacks'].include?(stack) }
                  .map { |d| d['version'] }
 
-  added += (new_versions - old_versions).uniq.sort
-  removed += (old_versions - new_versions).uniq.sort
+  added += (new_versions - old_versions).uniq.sort.map { |v| { version: v, stack: stack} }
+  removed += (old_versions - new_versions).uniq.sort.map { |v| { version: v, stack: stack} }
   if old_versions.include?(resource_version)
     rebuilt += [stack]
   end
@@ -176,13 +176,13 @@ end
 
 commit_message_parts = []
 if !added.empty?
-  commit_message_parts << "add #{manifest_name} #{resource_version} for #{added.map { |d| d['cf_stacks'] }.flatten.join(', ')}"
+  commit_message_parts << "add #{manifest_name} #{resource_version} for #{added.map { |d| d[:stack] }.join(', ')}"
 end
 if !rebuilt.empty?
   commit_message_parts << "rebuild #{manifest_name} #{resource_version} for #{rebuilt.join(', ')}"
 end
 if !removed.empty?
-  commit_message_parts << "remove #{manifest_name} #{removed.join(', ')} for #{removed.map { |d| d['cf_stacks'] }.flatten.join(', ')}"
+  commit_message_parts << "remove #{manifest_name} #{removed.map { |d| d[:version] }.join(', ')} for #{removed.map { |d| d[:stack] }.join(', ')}"
 end
 commit_message = commit_message_parts.join(", ")
 
