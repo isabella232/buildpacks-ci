@@ -13,51 +13,63 @@ manifest_master = YAML.load_file('buildpack-master/manifest.yml') # rescue { 'de
 data = JSON.parse(open('source/data.json').read)
 source_name = data.dig('source', 'name')
 resource_version = data.dig('version', 'ref')
-build = JSON.parse(open("builds/binary-builds-new/#{source_name}/#{resource_version}.json").read)
 manifest_name = source_name == 'nginx-static' ? 'nginx' : source_name
-story_id = build['tracker_story_id']
-version = build['version']
+# TODO : probably need stack name in filename
+story_id = JSON.parse(open("builds/binary-builds-new/#{source_name}/#{resource_version}.json").read)['tracker_story_id']
 removal_strategy = ENV['REMOVAL_STRATEGY']
 
 system('rsync -a buildpack/ artifacts/')
 raise 'Could not copy buildpack to artifacts' unless $?.success?
 
-dep = {
-  'name' => manifest_name,
-  'version' => version,
-  'uri' => build['url'],
-  'sha256' => build['sha256'],
-  'cf_stacks' => ENV['CF_STACKS'].split
-}
+added = []
+removed = []
+rebuilt = []
 
-old_versions = manifest['dependencies']
-                   .select {|d| d['name'] == manifest_name}
-                   .map {|d| d['version']}
+Dir["builds/binary-builds-new/#{source_name}/#{resource_version}-*.json"].each do |stack_dependency_build|
+  stack = %r{-([^-]*)\.json$}.match(stack_dependency_build)[1]
 
-manifest['dependencies'] = Dependencies.new(
-    dep,
-    ENV['VERSION_LINE'],
-    removal_strategy,
-    manifest['dependencies'],
-    manifest_master['dependencies']
-).switch
+  build = JSON.parse(open(stack_dependency_build).read)
+  dep = {
+    'name' => manifest_name,
+    'version' => resource_version,
+    'uri' => build['url'],
+    'sha256' => build['sha256'],
+    'cf_stacks' => [stack]
+  }
 
-new_versions = manifest['dependencies']
-                   .select {|d| d['name'] == manifest_name}
-                   .map {|d| d['version']}
+  old_versions = manifest['dependencies']
+                 .select { |d| d['name'] == manifest_name && d['cf_stacks'].include?(stack) }
+                 .map {|d| d['version']}
 
-added = (new_versions - old_versions).uniq.sort
-removed = (old_versions - new_versions).uniq.sort
-rebuilt = old_versions.include?(version)
+  manifest['dependencies'] = Dependencies.new(
+      dep,
+      ENV['VERSION_LINE'],
+      removal_strategy,
+      manifest['dependencies'],
+      manifest_master['dependencies']
+  ).switch
 
-if added.length == 0 && !rebuilt
+  new_versions = manifest['dependencies']
+                 .select { |d| d['name'] == manifest_name && d['cf_stacks'].include?(stack) }
+                 .map { |d| d['version'] }
+
+  added += (new_versions - old_versions).uniq.sort
+  removed += (old_versions - new_versions).uniq.sort
+  if old_versions.include?(resource_version)
+    rebuilt += [stack]
+  end
+end
+
+if added.empty? && rebuilt.empty?
   puts 'SKIP: Built version is not required by buildpack.'
   exit 0
 end
 
+# TODO make work for multiple stacks -- check cf_stacks for v?
+# i.e. python 3.7 is only on cflinuxfs3
 if removal_strategy == 'remove_all'
   manifest['default_versions'] = manifest['default_versions'].map do |v|
-    v['version'] = version if v['name'] == manifest_name
+    v['version'] = resource_version if v['name'] == manifest_name
     v
   end
 end
@@ -66,9 +78,9 @@ end
 # Special Nginx stuff (for Nginx buildpack)
 # * There are two version lines, stable & mainline
 #   when we add a new minor line, we should update the version line regex
-if !rebuilt && manifest_name == 'nginx' && manifest['language'] == 'nginx'
+if rebuilt.empty? && manifest_name == 'nginx' && manifest['language'] == 'nginx'
   version_lines = manifest['version_lines']
-  v = Gem::Version.new(version)
+  v = Gem::Version.new(resource_version)
   if data.dig('source', 'version_filter')
     if v.segments[1].even? # 1.12.X is stable
       manifest['version_lines']['stable'] = data['source']['version_filter'].downcase
@@ -80,14 +92,13 @@ if !rebuilt && manifest_name == 'nginx' && manifest['language'] == 'nginx'
   end
 end
 
-
 #
 # Special PHP stuff
 # * The defaults/options.json file contains default version numbers to use for each PHP line.
 #   Update the default version for the relevant line to this version of PHP (if !rebuilt)
 php_defaults = nil
-if !rebuilt && manifest_name == 'php' && manifest['language'] == 'php'
-  case version
+if rebuilt.empty? && manifest_name == 'php' && manifest['language'] == 'php'
+  case resource_version
   when /^5.6/
     varname = 'PHP_56_LATEST'
   when /^7.0/
@@ -97,12 +108,12 @@ if !rebuilt && manifest_name == 'php' && manifest['language'] == 'php'
   when /^7.2/
     varname = 'PHP_72_LATEST'
   else
-    puts "Unexpected version #{version} is not in known version lines."
+    puts "Unexpected version #{resource_version} is not in known version lines."
     exit 1
   end
 
   php_defaults = JSON.load_file('buildpack/defaults/options.json')
-  php_defaults[varname] = version
+  php_defaults[varname] = resource_version
 end
 
 #
@@ -110,8 +121,9 @@ end
 # * Each php version in the manifest lists the modules it was built with.
 #   Get that list for this version of php.
 if manifest_name == 'php' && manifest['language'] == 'php'
+  # TODO: different stacks could end up with different modules?
   dependencies = manifest['dependencies'].map do |dependency|
-    if dependency.fetch('name') == 'php' && dependency.fetch('version') == version
+    if dependency.fetch('name') == 'php' && dependency.fetch('version') == resource_version
       modules = Dir.mktmpdir do |dir|
         Dir.chdir(dir) do
           `wget --no-verbose #{build['url']} && tar xzf #{File.basename(build['url'])}`
@@ -134,7 +146,8 @@ end
 #   Replace the old version number with the new version we're adding. (if !rebuilt)
 path_to_extensions = 'extensions/appdynamics/extension.py'
 write_extensions = ''
-if !rebuilt && manifest_name == 'appdynamics' && manifest['language'] == 'php'
+if rebuilt.empty? && manifest_name == 'appdynamics' && manifest['language'] == 'php'
+  # TODO: does this change with multiple stacks?
   if removed.length == 1 && added.length == 1
     text = File.read('buildpack/' + path_to_extensions)
     write_extensions = text.gsub(/#{Regexp.quote(removed.first)}/, added.first)
@@ -149,8 +162,8 @@ end
 # Special JRuby Stuff
 # * There are two Gemfiles in fixtures which depend on the latest JRuby in the 9.2.X.X line.
 #   Replace their jruby engine version with the one in the manifest.
-ruby_files_to_edit = {'fixtures/sinatra_jruby/Gemfile' => nil, 'fixtures/jruby_start_command/Gemfile' => nil}
-if !rebuilt && manifest_name == 'jruby' && manifest['language'] == 'ruby'
+ruby_files_to_edit = { 'fixtures/sinatra_jruby/Gemfile' => nil, 'fixtures/jruby_start_command/Gemfile' => nil }
+if rebuilt.empty? && manifest_name == 'jruby' && manifest['language'] == 'ruby'
   version_number = /(9.2.\d+.\d+)_ruby-2.5/.match(version)
   if version_number
     jruby_version = version_numbers[1]
@@ -161,12 +174,12 @@ if !rebuilt && manifest_name == 'jruby' && manifest['language'] == 'ruby'
   end
 end
 
-commit_message = "Add #{manifest_name} #{version}"
-if rebuilt
-  commit_message = "Rebuild #{manifest_name} #{version}"
+commit_message = "Add #{manifest_name} #{resource_version} for #{added.map { |d| d['cf_stacks'] }.flatten.join(', ')}"
+if !rebuilt.empty?
+  commit_message = "Rebuild #{manifest_name} #{resource_version} for #{rebuilt.join(', ')}"
 end
-if removed.length > 0
-  commit_message = "#{commit_message}, remove #{manifest_name} #{removed.join(', ')}"
+if !removed.empty?
+  commit_message = "#{commit_message}, remove #{manifest_name} #{removed.join(', ')} for #{removed.map { |d| d['cf_stacks'] }.flatten.join(', ')}"
 end
 
 Dir.chdir('artifacts') do

@@ -12,6 +12,7 @@ system('rsync -a builds/ builds-artifacts/') or raise('Could not copy builds to 
 
 data = JSON.parse(open('source/data.json').read)
 version = data.dig('version', 'ref')
+stack = ENV.fetch('STACK')
 url = data.dig('version', 'url')
 name = data.dig('source', 'name')
 build = JSON.parse(open("builds/binary-builds-new/#{name}/#{version}.json").read)
@@ -36,7 +37,7 @@ when 'bundler'
   end
   old_file = "binary-builder/bundler-#{version}.tgz"
   sha = Digest::SHA256.hexdigest(open(old_file).read)
-  filename = "bundler-#{version}-#{sha[0..7]}.tgz"
+  filename = "bundler-#{version}-#{stack}-#{sha[0..7]}.tgz"
   FileUtils.mv(old_file, "artifacts/#{filename}")
 
   out_data.merge!({
@@ -107,7 +108,7 @@ when 'pipenv'
     end
   end
   sha = Digest::SHA256.hexdigest(open("/tmp/pipenv-v#{version}.tgz").read)
-  filename = "pipenv-v#{version}-#{sha[0..7]}.tgz"
+  filename = "pipenv-v#{version}-#{stack}-#{sha[0..7]}.tgz"
   FileUtils.mv("/tmp/pipenv-v#{version}.tgz", "artifacts/#{filename}")
 
   out_data.merge!({
@@ -186,7 +187,7 @@ when 'dep'
   end
   old_file = "binary-builder/dep-v#{version}-linux-x64.tgz"
   sha = Digest::SHA256.hexdigest(open(old_file).read)
-  filename = "dep-v#{version}-linux-x64-#{sha[0..7]}.tgz"
+  filename = "dep-v#{version}-linux-x64-#{stack}-#{sha[0..7]}.tgz"
   FileUtils.mv(old_file, "artifacts/#{filename}")
 
   out_data.merge!({
@@ -199,7 +200,7 @@ when 'glide'
   end
   old_file = "binary-builder/glide-v#{version}-linux-x64.tgz"
   sha = Digest::SHA256.hexdigest(open(old_file).read)
-  filename = "glide-v#{version}-linux-x64-#{sha[0..7]}.tgz"
+  filename = "glide-v#{version}-linux-x64-#{stack}-#{sha[0..7]}.tgz"
   FileUtils.mv(old_file, "artifacts/#{filename}")
 
   out_data.merge!({
@@ -212,7 +213,7 @@ when 'godep'
   end
   old_file = "binary-builder/godep-v#{version}-linux-x64.tgz"
   sha = Digest::SHA256.hexdigest(open(old_file).read)
-  filename = "godep-v#{version}-linux-x64-#{sha[0..7]}.tgz"
+  filename = "godep-v#{version}-linux-x64-#{stack}-#{sha[0..7]}.tgz"
   FileUtils.mv(old_file, "artifacts/#{filename}")
 
   out_data.merge!({
@@ -225,7 +226,7 @@ when 'go'
   end
   old_file = "binary-builder/go#{version}.linux-amd64.tar.gz"
   sha = Digest::SHA256.hexdigest(open(old_file).read)
-  filename = "go#{version}.linux-amd64-#{sha[0..7]}.tar.gz"
+  filename = "go#{version}.linux-amd64-#{stack}-#{sha[0..7]}.tar.gz"
   FileUtils.mv(old_file, "artifacts/#{filename}")
 
   out_data.merge!({
@@ -247,7 +248,7 @@ when 'jruby'
   end
   old_file = "binary-builder/jruby-#{version}_ruby-#{ruby_version}-linux-x64.tgz"
   sha = Digest::SHA256.hexdigest(open(old_file).read)
-  filename = "jruby-#{version}_ruby-#{ruby_version}-linux-x64-#{sha[0..7]}.tgz"
+  filename = "jruby-#{version}_ruby-#{ruby_version}-linux-x64-#{stack}-#{sha[0..7]}.tgz"
   FileUtils.mv(old_file, "artifacts/#{filename}")
 
   out_data.merge!({
@@ -273,7 +274,7 @@ when 'libunwind'
   end
   old_filename = File.join(built_path,old_filename)
   sha = Digest::SHA256.hexdigest(open(old_filename).read)
-  filename = "libunwind-#{version}-#{sha[0..7]}.tar.gz"
+  filename = "libunwind-#{version}-#{stack}-#{sha[0..7]}.tar.gz"
   FileUtils.mv(old_filename, "artifacts/#{filename}")
   out_data.merge!({
     sha256: sha,
@@ -285,7 +286,7 @@ when 'node'
   end
   old_file = "binary-builder/node-#{version}-linux-x64.tgz"
   sha = Digest::SHA256.hexdigest(open(old_file).read)
-  filename = "node-#{version}-linux-x64-#{sha[0..7]}.tgz"
+  filename = "node-#{version}-linux-x64-#{stack}-#{sha[0..7]}.tgz"
   FileUtils.mv(old_file, "artifacts/#{filename}")
 
   out_data.merge!({
@@ -312,7 +313,7 @@ when 'php'
   end
   old_file = "binary-builder/php#{phpV}-#{version}-linux-x64.tgz"
   sha = Digest::SHA256.hexdigest(open(old_file).read)
-  filename = "php#{phpV}-#{version}-linux-x64-#{sha[0..7]}.tgz"
+  filename = "php#{phpV}-#{version}-linux-x64-#{stack}-#{sha[0..7]}.tgz"
   FileUtils.mv(old_file, "artifacts/#{filename}")
 
   out_data.merge!({
@@ -325,7 +326,7 @@ when 'python'
   end
   old_file = "binary-builder/python-#{version}-linux-x64.tgz"
   sha = Digest::SHA256.hexdigest(open(old_file).read)
-  filename = "python-#{version}-linux-x64-#{sha[0..7]}.tgz"
+  filename = "python-#{version}-linux-x64-#{stack}-#{sha[0..7]}.tgz"
   FileUtils.mv(old_file, "artifacts/#{filename}")
 
   out_data.merge!({
@@ -338,7 +339,7 @@ when 'httpd'
   end
   old_file = "binary-builder/httpd-#{version}-linux-x64.tgz"
   sha = Digest::SHA256.hexdigest(open(old_file).read)
-  filename = "httpd-#{version}-linux-x64-#{sha[0..7]}.tgz"
+  filename = "httpd-#{version}-linux-x64-#{stack}-#{sha[0..7]}.tgz"
   FileUtils.mv(old_file, "artifacts/#{filename}")
 
   out_data.merge!({
@@ -370,7 +371,7 @@ when 'r'
   end
 
   sha = Digest::SHA256.hexdigest(open("artifacts/r-v#{version}.tgz").read)
-  filename = "r-v#{version}-#{sha[0..7]}.tgz"
+  filename = "r-v#{version}-#{stack}-#{sha[0..7]}.tgz"
   FileUtils.mv("artifacts/r-v#{version}.tgz", "artifacts/#{filename}")
 
   out_data.merge!({
@@ -422,7 +423,7 @@ when 'nginx'
   end
 
   sha = Digest::SHA256.hexdigest(open("artifacts/nginx-#{version}.tgz").read)
-  filename = "nginx-#{version}-linux-x64-#{sha[0..7]}.tgz"
+  filename = "nginx-#{version}-linux-x64-#{stack}-#{sha[0..7]}.tgz"
   FileUtils.mv("artifacts/nginx-#{version}.tgz", "artifacts/#{filename}")
 
   out_data.merge!({
@@ -437,7 +438,7 @@ when 'nginx-static'
   end
   old_file = "binary-builder/nginx-#{version}-linux-x64.tgz"
   sha = Digest::SHA256.hexdigest(open(old_file).read)
-  filename = "nginx-#{version}-linux-x64-#{sha[0..7]}.tgz"
+  filename = "nginx-#{version}-linux-x64-#{stack}-#{sha[0..7]}.tgz"
   FileUtils.mv(old_file, "artifacts/#{filename}")
 
   out_data.merge!({
@@ -454,8 +455,8 @@ Dir.chdir('builds-artifacts') do
   GitClient.set_global_config('user.email', 'cf-buildpacks-eng@pivotal.io')
   GitClient.set_global_config('user.name', 'CF Buildpacks Team CI Server')
 
-  File.write("binary-builds-new/#{name}/#{version}.json", out_data.to_json)
+  File.write("binary-builds-new/#{name}/#{version}-#{stack}.json", out_data.to_json)
 
-  GitClient.add_file("binary-builds-new/#{name}/#{version}.json")
-  GitClient.safe_commit("Build #{name} - #{version} [##{tracker_story_id}]")
+  GitClient.add_file("binary-builds-new/#{name}/#{version}-#{stack}.json")
+  GitClient.safe_commit("Build #{name} - #{version} - #{stack} [##{tracker_story_id}]")
 end
