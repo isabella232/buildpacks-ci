@@ -6,11 +6,11 @@ set -o pipefail
 
 SUFFIX="${ROOTFS_SUFFIX-}"
 
-cp "receipt-s3/${STACK}_receipt${SUFFIX}"-* "rootfs/${STACK}/${STACK}_receipt"
+cp "receipt-s3/receipt.${STACK}${SUFFIX}.x86_64"-* "rootfs/receipt.${STACK}${SUFFIX}.x86_64"
 
 pushd rootfs
     version=$(cat ../version/number)
-    git add "${STACK}/${STACK}_receipt"
+    git add "receipt.${STACK}${SUFFIX}.x86_64"
 
     set +e
       git diff --cached --exit-code
