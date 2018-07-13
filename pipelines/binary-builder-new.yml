@@ -33,8 +33,6 @@
   yarn: { buildpacks: { nodejs: {}, ruby: {} }, source_type: 'github_releases', source_params: ['repo: yarnpkg/yarn', 'extension: .tar.gz']}
 }
 
-stacks = ['cflinuxfs2', 'cflinuxfs3']
-
 def validate_dependencies(deps)
   deps.each do |dep_name, dep|
     if !(dep[:buildpacks].values.all? {|bp| bp[:lines].nil? } || dep[:buildpacks].values.all? {|bp| bp[:lines] })
@@ -87,7 +85,7 @@ resources:
   type: git
   source:
     uri: {{buildpacks-ci-git-uri-public}}
-    branch: build-cflinuxfs3-deps-144938923
+    branch: {{buildpacks-ci-git-uri-public-branch}}
 - name: builds
   type: git
   source:
@@ -95,12 +93,6 @@ resources:
     branch: master
     paths: [ binary-builds-new/ ]
     private_key: {{public-buildpacks-ci-robots-private-key}}
-
-<% stacks.each do |stack| %>
-- name: <%= stack %>-image
-  type: docker-image
-  source: {repository: cloudfoundry/<%= stack %>}
-<% end %>
 
 <% dependencies.values.map{|dep| dep[:buildpacks].keys}.flatten.uniq.each do |buildpack| %>
 - name: <%= buildpack %>-buildpack
@@ -239,29 +231,19 @@ jobs:
       trigger: true
       version: every
       passed: [ create-<%=dep_name%>-<%= line %>-story ]
-    <% stacks.each do |stack| %>
-    - get: <%= stack %>-image
-    <% end %>
     - get: builds
-  - aggregate:
-    <% stacks.each do |stack| %>
-    - do:
-      - task: build-binary-<%= stack %>
-        image: <%= stack %>-image
-        file: buildpacks-ci/tasks/build-binary-new/build.yml
-        output_mapping: {artifacts: <%= stack %>-artifacts, builds-artifacts: <%= stack %>-builds-artifacts}
-        params:
-          STACK: <%= stack %>
-      <% if !dep[:third_party_hosted] %>
-      - put: buildpacks-bucket-<%=dep_name%>
-        params:
-          file: artifacts/<%=dep_name.to_s == "nginx-static" ? "nginx" : dep_name %>*
-      <% end %>
-      - put: builds
-        params:
-          repository: <%= stack %>-builds-artifacts
-          rebase: true
+  - do:
+    - task: build-binary
+      file: buildpacks-ci/tasks/build-binary-new/build.yml
+    <% if !dep[:third_party_hosted] %>
+    - put: buildpacks-bucket-<%=dep_name%>
+      params:
+        file: artifacts/<%=dep_name.to_s == "nginx-static" ? "nginx" : dep_name %>*
     <% end %>
+    - put: builds
+      params:
+        repository: builds-artifacts
+        rebase: true
 <% end %>
 
 <% if dep_name == :dotnet %>
