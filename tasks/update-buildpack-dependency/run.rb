@@ -4,6 +4,10 @@ require 'yaml'
 require 'tmpdir'
 require_relative './dependencies'
 
+CFLINUXFS2 = 'cflinuxfs2'
+CFLINUXFS3 = 'cflinuxfs3'
+ALL_STACKS = [CFLINUXFS2, CFLINUXFS3]
+
 buildpacks_ci_dir = File.expand_path(File.join(File.dirname(__FILE__), '..', '..'))
 require_relative "#{buildpacks_ci_dir}/lib/git-client"
 
@@ -14,7 +18,7 @@ data = JSON.parse(open('source/data.json').read)
 source_name = data.dig('source', 'name')
 resource_version = data.dig('version', 'ref')
 manifest_name = source_name == 'nginx-static' ? 'nginx' : source_name
-# TODO : probably need stack name in filename
+# create story is one-per-version; it creates the json file with the tracker ID
 story_id = JSON.parse(open("builds/binary-builds-new/#{source_name}/#{resource_version}.json").read)['tracker_story_id']
 removal_strategy = ENV['REMOVAL_STRATEGY']
 
@@ -24,21 +28,22 @@ raise 'Could not copy buildpack to artifacts' unless $?.success?
 added = []
 removed = []
 rebuilt = []
+stacks = []
 
 Dir["builds/binary-builds-new/#{source_name}/#{resource_version}-*.json"].each do |stack_dependency_build|
-  stack = %r{-([^-]*)\.json$}.match(stack_dependency_build)[1]
-
+  stack = %r{#{resource_version}-(.*)\.json$}.match(stack_dependency_build)[1]
+  stacks = (stack == 'any-stack') ? ALL_STACKS : [stack]
   build = JSON.parse(open(stack_dependency_build).read)
   dep = {
     'name' => manifest_name,
     'version' => resource_version,
     'uri' => build['url'],
     'sha256' => build['sha256'],
-    'cf_stacks' => [stack]
+    'cf_stacks' => stacks
   }
 
   old_versions = manifest['dependencies']
-                 .select { |d| d['name'] == manifest_name && d['cf_stacks'].include?(stack) }
+                 .select { |d| d['name'] == manifest_name }
                  .map {|d| d['version']}
 
   manifest['dependencies'] = Dependencies.new(
@@ -50,17 +55,15 @@ Dir["builds/binary-builds-new/#{source_name}/#{resource_version}-*.json"].each d
   ).switch
 
   new_versions = manifest['dependencies']
-                 .select { |d| d['name'] == manifest_name && d['cf_stacks'].include?(stack) }
+                 .select { |d| d['name'] == manifest_name }
                  .map { |d| d['version'] }
 
-  added += (new_versions - old_versions).uniq.sort.map { |v| { version: v, stack: stack} }
-  removed += (old_versions - new_versions).uniq.sort.map { |v| { version: v, stack: stack} }
-  if old_versions.include?(resource_version)
-    rebuilt += [stack]
-  end
+  added += (new_versions - old_versions).uniq.sort
+  removed += (old_versions - new_versions).uniq.sort
+  rebuilt = old_versions.include?(resource_version)
 end
 
-if added.empty? && rebuilt.empty?
+if added.empty? && !rebuilt
   puts 'SKIP: Built version is not required by buildpack.'
   exit 0
 end
@@ -78,7 +81,7 @@ end
 # Special Nginx stuff (for Nginx buildpack)
 # * There are two version lines, stable & mainline
 #   when we add a new minor line, we should update the version line regex
-if rebuilt.empty? && manifest_name == 'nginx' && manifest['language'] == 'nginx'
+if !rebuilt && manifest_name == 'nginx' && manifest['language'] == 'nginx'
   version_lines = manifest['version_lines']
   v = Gem::Version.new(resource_version)
   if data.dig('source', 'version_filter')
@@ -97,7 +100,7 @@ end
 # * The defaults/options.json file contains default version numbers to use for each PHP line.
 #   Update the default version for the relevant line to this version of PHP (if !rebuilt)
 php_defaults = nil
-if rebuilt.empty? && manifest_name == 'php' && manifest['language'] == 'php'
+if !rebuilt && manifest_name == 'php' && manifest['language'] == 'php'
   case resource_version
   when /^5.6/
     varname = 'PHP_56_LATEST'
@@ -146,7 +149,7 @@ end
 #   Replace the old version number with the new version we're adding. (if !rebuilt)
 path_to_extensions = 'extensions/appdynamics/extension.py'
 write_extensions = ''
-if rebuilt.empty? && manifest_name == 'appdynamics' && manifest['language'] == 'php'
+if !rebuilt && manifest_name == 'appdynamics' && manifest['language'] == 'php'
   # TODO: does this change with multiple stacks?
   if removed.length == 1 && added.length == 1
     text = File.read('buildpack/' + path_to_extensions)
@@ -163,7 +166,7 @@ end
 # * There are two Gemfiles in fixtures which depend on the latest JRuby in the 9.2.X.X line.
 #   Replace their jruby engine version with the one in the manifest.
 ruby_files_to_edit = { 'fixtures/sinatra_jruby/Gemfile' => nil, 'fixtures/jruby_start_command/Gemfile' => nil }
-if rebuilt.empty? && manifest_name == 'jruby' && manifest['language'] == 'ruby'
+if !rebuilt && manifest_name == 'jruby' && manifest['language'] == 'ruby'
   version_number = /(9.2.\d+.\d+)_ruby-2.5/.match(version)
   if version_number
     jruby_version = version_numbers[1]
@@ -174,17 +177,14 @@ if rebuilt.empty? && manifest_name == 'jruby' && manifest['language'] == 'ruby'
   end
 end
 
-commit_message_parts = []
-if !added.empty?
-  commit_message_parts << "add #{manifest_name} #{resource_version} for #{added.map { |d| d[:stack] }.join(', ')}"
+commit_message = "Add #{manifest_name} #{resource_version}"
+if rebuilt
+  commit_message = "Rebuild #{manifest_name} #{resource_version}"
 end
-if !rebuilt.empty?
-  commit_message_parts << "rebuild #{manifest_name} #{resource_version} for #{rebuilt.join(', ')}"
+if removed.length > 0
+  commit_message = "#{commit_message}, remove #{manifest_name} #{removed.join(', ')}"
 end
-if !removed.empty?
-  commit_message_parts << "remove #{manifest_name} #{removed.map { |d| d[:version] }.join(', ')} for #{removed.map { |d| d[:stack] }.join(', ')}"
-end
-commit_message = commit_message_parts.join("; ")
+commit_message = commit_message + "\n\nfor stacks #{stacks.join(', ')}"
 
 Dir.chdir('artifacts') do
   GitClient.set_global_config('user.email', 'cf-buildpacks-eng@pivotal.io')

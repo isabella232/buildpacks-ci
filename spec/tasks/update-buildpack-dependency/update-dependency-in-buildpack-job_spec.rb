@@ -415,5 +415,35 @@ describe Dependencies do
         ])
       end
     end
+
+    context 'the new dep expands the number of stacks for an existing dep' do
+      let(:dep) { { 'name' => 'ruby', 'version' => '1.3.4', 'cf_stacks' => ['stack1', 'stack2'] } }
+      let(:line) { 'major' }
+
+      it 'replaces the existing dep with a dep with the extra stacks' do
+        expect(subject).to eq([
+          { 'name' => 'bundler', 'version' => '1.2.3', 'cf_stacks' => ['stack1'] },
+          { 'name' => 'ruby', 'version' => '1.2.3', 'cf_stacks' => ['stack1'] },
+          { 'name' => 'ruby', 'version' => '1.2.4', 'cf_stacks' => ['stack1'] },
+          { 'name' => 'ruby', 'version' => '1.3.4', 'cf_stacks' => ['stack1', 'stack2'] },
+          { 'name' => 'ruby', 'version' => '2.3.4', 'cf_stacks' => ['stack1'] },
+          { 'name' => 'ruby', 'version' => '2.3.6', 'cf_stacks' => ['stack1'] },
+        ])
+      end
+    end
+
+    context 'the new dep is the latest version and contains new stacks' do
+      let(:dep) { { 'name' => 'ruby', 'version' => '1.4.4', 'cf_stacks' => ['stack1', 'stack2'] } }
+      let(:line) { 'major' }
+
+      it 'adds the dep with a dep with the extra stacks and removes the old ones' do
+        expect(subject).to eq([
+          { 'name' => 'bundler', 'version' => '1.2.3', 'cf_stacks' => ['stack1'] },
+          { 'name' => 'ruby', 'version' => '1.4.4', 'cf_stacks' => ['stack1', 'stack2'] },
+          { 'name' => 'ruby', 'version' => '2.3.4', 'cf_stacks' => ['stack1'] },
+          { 'name' => 'ruby', 'version' => '2.3.6', 'cf_stacks' => ['stack1'] },
+        ])
+      end
+    end
   end
 end

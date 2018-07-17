@@ -43,7 +43,7 @@ class Dependencies
 
   def same_dependency_line?(stacks, version, dep_name)
     return false if dep_name != @dep['name']
-    return false unless stacks.include?(@dep['cf_stacks'][0])
+    return false unless (stacks - @dep['cf_stacks']).empty?
 
     version = begin
       Gem::Version.new(version)
