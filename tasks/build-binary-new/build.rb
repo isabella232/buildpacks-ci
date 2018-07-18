@@ -54,7 +54,8 @@ when 'dotnet'
     GitClient.checkout_branch(commit_sha)
     run('apt-get', 'update')
     run('apt-get', '-y', 'upgrade')
-    run('apt-get', '-y', 'install', 'clang', 'devscripts', 'debhelper', 'libunwind8', 'liburcu1', 'libpython2.7', 'liblttng-ust0', 'libllvm3.6', 'liblldb-3.6')
+    fs_specific_packages = stack == 'cflinuxfs2' ? ['liburcu1', 'libllvm3.6', 'liblldb-3.6'] : ['liburcu6', 'libllvm3.9', 'liblldb-3.9']
+    run('apt-get', '-y', 'install', 'clang', 'devscripts', 'debhelper', 'libunwind8', 'libpython2.7', 'liblttng-ust0', *fs_specific_packages)
 
     ENV['DropSuffix'] = 'true'
     ENV['TERM'] = 'linux'
@@ -335,6 +336,7 @@ when 'python'
   })
 when 'httpd'
   Dir.chdir('binary-builder') do
+    run('apt-get', 'install', '-y', 'libssl-dev', 'libldap2-dev')
     run('./bin/binary-builder', '--name=httpd', "--version=#{version}", "--sha256=#{data.dig('version', 'sha256')}")
   end
   old_file = "binary-builder/httpd-#{version}-linux-x64.tgz"
@@ -351,8 +353,9 @@ when 'r'
   source_sha = ''
   Dir.mktmpdir do |dir|
     Dir.chdir(dir) do
+      run('mkdir', '-p', '/usr/share/man/man1')
       run('apt', 'update')
-      run('apt-get', 'install', '-y', 'gfortran', 'libbz2-dev', 'liblzma-dev', 'libpcre++-dev', 'libcurl4-openssl-dev', 'default-jre')
+      run('apt-get', 'install', '-y', 'gfortran', 'libssl-dev', 'libbz2-dev', 'liblzma-dev', 'libpcre++-dev', 'libcurl4-openssl-dev', 'default-jre')
       run('wget', url)
       source_sha = Digest::SHA256.hexdigest(open("R-#{version}.tar.gz").read)
       run('tar', 'xf', "R-#{version}.tar.gz")
@@ -385,6 +388,7 @@ when 'nginx'
   destdir = Dir.mktmpdir
   Dir.mktmpdir do |dir|
     Dir.chdir(dir) do
+      run('apt-get', 'install', '-y', 'libssl-dev')
       run('wget', data.dig('version', 'url'))
       # TODO validate pgp
       run('tar', 'xf', "nginx-#{version}.tar.gz")
@@ -434,6 +438,7 @@ when 'nginx'
 when 'nginx-static'
   old_sha = Digest::SHA256.hexdigest(open(data.dig('version', 'url')).read)
   Dir.chdir('binary-builder') do
+    run('apt-get', 'install', '-y', 'libssl-dev')
     run('./bin/binary-builder', '--name=nginx', "--version=#{version}", "--sha256=#{old_sha}")
   end
   old_file = "binary-builder/nginx-#{version}-linux-x64.tgz"

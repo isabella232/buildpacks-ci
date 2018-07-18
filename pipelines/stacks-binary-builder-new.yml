@@ -26,7 +26,8 @@
                         source_params: ['repo: golang/dep', 'fetch_source: true']},
 
   dotnet:             { buildpacks: {
-                          'dotnet-core' => { lines: ["1.0.X", "1.1.X", "2.0.X", "2.1.X"], removal_strategy: 'keep_master' } } },
+                          'dotnet-core' => { lines: ["1.0.X", "1.1.X", "2.0.X", "2.1.X"], removal_strategy: 'keep_master' } },
+                        source_params: ['tag_regex: .*'] },
 
   'dotnet-framework': { buildpacks: {
                           'dotnet-core' => { lines: ["1.0.X", "1.1.X", "2.0.X", "2.1.X"], removal_strategy: 'keep_all' } } },
