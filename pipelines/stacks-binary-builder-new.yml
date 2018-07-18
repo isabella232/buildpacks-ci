@@ -46,9 +46,10 @@
   httpd:              { buildpacks: { php: {} } },
 
   hwc:                { buildpacks: {
-                          hwc: { cf_stacks: ['windows2012R2', 'windows2016'] } },
+                          hwc: {} },
                         source_type: 'github_releases',
-                        source_params: ['repo: cloudfoundry/hwc', 'fetch_source: true']},
+                        source_params: ['repo: cloudfoundry/hwc', 'fetch_source: true'],
+                        any_stack: true},
 
   jruby:              { buildpacks: {
                           ruby: { lines: ["9.1.X", "9.2.X"] }},
@@ -121,6 +122,7 @@
 }
 
 stacks = ['cflinuxfs2', 'cflinuxfs3']
+windows_stacks = ['windows2012R2', 'windows2016']
 
 skip_build = [{ dep: 'python', line: '3.7.X', stack: 'cflinuxfs2' }]
 
