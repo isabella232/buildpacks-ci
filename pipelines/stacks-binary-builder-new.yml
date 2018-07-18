@@ -372,22 +372,28 @@ jobs:
         version: every
         passed: [ build-<%=dep_name%>-<%= line %> ]
       - get: builds
-    - do:
-      - task: extract-dotnet-framework
-        file: buildpacks-ci/tasks/extract-dotnet-framework/task.yml
-      - task: push-binary
-        file: buildpacks-ci/tasks/push-binary/task.yml
-        params:
-          DEPENDENCY: dotnet-framework
-          BUCKET_NAME: {{buildpacks-binaries-s3-bucket}}
-          AWS_ACCESS_KEY_ID: {{pivotal-buildpacks-s3-access-key}}
-          AWS_SECRET_ACCESS_KEY: {{pivotal-buildpacks-s3-secret-key}}
-          AWS_DEFAULT_REGION: us-east-1
-          TEST_CREDENTIAL_FILTER_WHITELIST: BUCKET_NAME
-      - put: builds
-        params:
-          repository: builds-artifacts
-          rebase: true
+    - aggregate:
+      - do:
+        <% stacks.each do |stack| %>
+        - task: extract-dotnet-framework
+          file: buildpacks-ci/tasks/extract-dotnet-framework/task.yml
+          params:
+            STACK: <%= stack %>
+        - task: push-binary
+          file: buildpacks-ci/tasks/push-binary/task.yml
+          params:
+            DEPENDENCY: dotnet-framework
+            BUCKET_NAME: {{buildpacks-binaries-s3-bucket}}
+            AWS_ACCESS_KEY_ID: {{pivotal-buildpacks-s3-access-key}}
+            AWS_SECRET_ACCESS_KEY: {{pivotal-buildpacks-s3-secret-key}}
+            AWS_DEFAULT_REGION: us-east-1
+            TEST_CREDENTIAL_FILTER_WHITELIST: BUCKET_NAME
+            STACK: <%= stack %>
+        - put: builds
+          params:
+            repository: builds-artifacts
+            rebase: true
+        <% end %>
 <% end %>
 
 <% if dep_name.to_s == 'dotnet-framework' %>
