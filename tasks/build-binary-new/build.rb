@@ -83,7 +83,7 @@ when 'dotnet'
     system('tar', 'Jcf', "/tmp/#{old_filename}", '.')
   end
   sha = Digest::SHA256.hexdigest(open("/tmp/#{old_filename}").read)
-  filename = "#{name}.#{version}.linux-amd64-#{sha[0..7]}.tar.xz"
+  filename = "#{name}.#{version}.linux-amd64-#{stack}-#{sha[0..7]}.tar.xz"
   FileUtils.mv("/tmp/#{old_filename}", "artifacts/#{filename}")
 
   out_data.merge!({

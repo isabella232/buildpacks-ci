@@ -13,7 +13,8 @@ require_relative "#{buildpacks_ci_dir}/lib/git-client"
 
 source_file = JSON.parse(open('source/data.json').read)
 source_version = source_file.dig('version', 'ref')
-build_file = JSON.parse(open("builds/binary-builds-new/dotnet/#{source_version}.json").read)
+stack = ENV['STACK']
+build_file = JSON.parse(open("builds/binary-builds-new/dotnet/#{source_version}-#{stack}.json").read)
 dotnet_sdk_dependency_url = build_file['url']
 git_commit_sha = build_file.dig('git_commit_sha')
 sdk_source_url = build_file.dig('source', 'url')
