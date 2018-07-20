@@ -30,12 +30,16 @@ added = []
 removed = []
 rebuilt = []
 stacks = []
+builds = {}
 
 Dir["builds/binary-builds-new/#{source_name}/#{resource_version}-*.json"].each do |stack_dependency_build|
   stack = %r{#{resource_version}-(.*)\.json$}.match(stack_dependency_build)[1]
   stacks = (stack == 'any-stack') ? ALL_STACKS : [stack]
   stacks = WINDOWS_STACKS if source_name == 'hwc'
+
   build = JSON.parse(open(stack_dependency_build).read)
+  builds[stack] = build
+
   dep = {
     'name' => manifest_name,
     'version' => resource_version,
@@ -131,7 +135,9 @@ if manifest_name == 'php' && manifest['language'] == 'php'
     if dependency.fetch('name') == 'php' && dependency.fetch('version') == resource_version
       modules = Dir.mktmpdir do |dir|
         Dir.chdir(dir) do
-          `wget --no-verbose #{build['url']} && tar xzf #{File.basename(build['url'])}`
+          stack = dependency.fetch('cf_stacks').first
+          url = builds[stack]['url']
+          `wget --no-verbose #{url} && tar xzf #{File.basename(url)}`
           Dir['php/lib/php/extensions/no-debug-non-zts-*/*.so'].collect do |file|
             File.basename(file, '.so')
           end.sort.reject do |m|
