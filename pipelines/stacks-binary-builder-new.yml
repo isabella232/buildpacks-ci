@@ -1,0 +1,522 @@
+<% dependencies = {
+  appdynamics:        { buildpacks: { php: {} },
+                        third_party_hosted: true,
+                        source_type: 'appd_agent',
+                        any_stack: true },
+
+  bower:              { buildpacks: { 'dotnet-core' => {} },
+                        source_type: 'npm',
+                        any_stack: true },
+
+  bundler:            { buildpacks: { ruby: {} },
+                        source_type: 'rubygems' },
+
+  CAAPM:              { buildpacks: { php: {} },
+                        third_party_hosted: true,
+                        source_type: 'ca_apm_agent',
+                        any_stack: true },
+
+  composer:           { buildpacks: { php: {} },
+                        source_type: 'github_releases',
+                        source_params: ['repo: composer/composer', 'extension: .phar'],
+                        any_stack: true },
+
+  dep:                { buildpacks: { go: {}},
+                        source_type: 'github_releases',
+                        source_params: ['repo: golang/dep', 'fetch_source: true']},
+
+  dotnet:             { buildpacks: {
+                          'dotnet-core' => { lines: ["1.0.X", "1.1.X", "2.0.X", "2.1.X"], removal_strategy: 'keep_master' } },
+                        source_params: ['tag_regex: .*'] },
+
+  'dotnet-framework': { buildpacks: {
+                          'dotnet-core' => { lines: ["1.0.X", "1.1.X", "2.0.X", "2.1.X"], removal_strategy: 'keep_all' } } },
+
+  glide:              { buildpacks: { go: {}},
+                        source_type: 'github_releases',
+                        source_params: ['repo: Masterminds/glide', 'fetch_source: true'] },
+
+  go:                 { buildpacks: {
+                          go: { lines: ["1.6.X", "1.7.X", "1.8.X", "1.9.X", "1.10.X"], removal_strategy: 'keep_master' } } },
+
+  godep:              { buildpacks: { go: {}},
+                        source_type: 'github_releases',
+                        source_params: ['repo: tools/godep', 'fetch_source: true']},
+
+  httpd:              { buildpacks: { php: {} } },
+
+  hwc:                { buildpacks: {
+                          hwc: {} },
+                        source_type: 'github_releases',
+                        source_params: ['repo: cloudfoundry/hwc', 'fetch_source: true'],
+                        any_stack: true},
+
+  jruby:              { buildpacks: {
+                          ruby: { lines: ["9.1.X", "9.2.X"] }},
+                        source_type: 'jruby'},
+
+  libunwind:          { buildpacks: { 'dotnet-core' => {} },
+                        source_type: 'github_releases',
+                        source_params: ['repo: libunwind/libunwind', 'extension: .tar.gz']},
+
+  miniconda2:         { buildpacks: { python: {} },
+                        third_party_hosted: true,
+                        source_type: 'miniconda',
+                        source_params: ['generation: 2'],
+                        any_stack: true },
+
+  miniconda3:         { buildpacks: { python: {} },
+                        third_party_hosted: true,
+                        source_type: 'miniconda',
+                        source_params: ['generation: 3'],
+                        any_stack: true },
+
+  nginx:              { buildpacks: {
+                          nginx: { lines: ["1.14.X", "1.15.X"] }}},
+
+  'nginx-static':     { buildpacks: {
+                          php: { lines: ["1.14.X", "1.15.X"] },
+                          staticfile: { lines: ["1.15.X"] } },
+                        source_type: 'nginx' },
+
+  node:               { buildpacks: {
+                          nodejs: { lines: ["6.X.X", "8.X.X", "9.X.X", "10.X.X"], removal_strategy: 'keep_master'},
+                          ruby: { lines: ["6.X.X"], removal_strategy: 'keep_master'},
+                          'dotnet-core' => { lines: ["6.X.X"], removal_strategy: 'keep_master'}},
+                        source_type: 'node'},
+
+  php:                { buildpacks: {
+                          php: { lines: ["5.6.X", "7.0.X", "7.1.X", "7.2.X"], removal_strategy: 'keep_master'} },
+                        source_type: 'php'},
+
+  pip:                { buildpacks: { python: {} },
+                        source_type: 'pypi',
+                        any_stack: true },
+
+  pipenv:             { buildpacks: { python: {} },
+                        source_type: 'pypi'},
+
+  python:             { buildpacks: {
+                          python: { lines: ["2.7.X", "3.4.X", "3.5.X", "3.6.X", "3.7.X"], removal_strategy: 'keep_master' } } },
+
+  r:                  { buildpacks: {
+                          r: { lines: ["3.4.X", "3.5.X"], removal_strategy: 'keep_master' } } },
+
+  ruby:               { buildpacks: {
+                          ruby: { lines: ["2.2.X", "2.3.X", "2.4.X", "2.5.X"], removal_strategy: 'keep_master' } } },
+
+  rubygems:           { buildpacks: { ruby: {} },
+                        source_type: 'rubygems_cli',
+                        any_stack: true },
+
+  setuptools:         { buildpacks: { python: {}},
+                        source_type: 'pypi',
+                        any_stack: true },
+
+  yarn:               { buildpacks: {
+                          nodejs: {},
+                          ruby: {} },
+                        source_type: 'github_releases',
+                        source_params: ['repo: yarnpkg/yarn', 'extension: .tar.gz'],
+                        any_stack: true }
+}
+
+stacks = ['cflinuxfs2', 'cflinuxfs3']
+windows_stacks = ['windows2012R2', 'windows2016']
+
+skip_build = [
+  { dep: 'python', line: '3.7.X', stack: 'cflinuxfs2' },
+  { dep: 'php', line: '5.6.X', stack: 'cflinuxfs3'},
+  { dep: 'dotnet', line: '1.0.X', stack: 'cflinuxfs3' },
+]
+
+def validate_dependencies(deps)
+  deps.each do |dep_name, dep|
+    if !(dep[:buildpacks].values.all? {|bp| bp[:lines].nil? } || dep[:buildpacks].values.all? {|bp| bp[:lines] })
+      raise "For #{dep_name}, mixing buildpacks that specify version lines and ones that do not is NOT currently supported"
+    end
+
+    if dep[:buildpacks].values.flat_map { |bp| (bp[:lines] || []).map {|l| l.count('X') } }.uniq.length > 1
+      raise "For #{dep_name}, overlapping version lines are not supported (e.g. 1.X.X and 1.2.X)"
+    end
+  end
+end
+
+validate_dependencies(dependencies)
+
+def is_multiline?(dep)
+  dep[:buildpacks].values.any? { |bp| bp[:lines] }
+end
+
+def get_version_line_type(lines)
+  return nil if lines.nil?
+
+  case lines.first.split('.').index('X')
+  when 1
+    'major'
+  when 2
+    'minor'
+  else
+    nil
+  end
+end
+
+def bp_uses_line?(bp_data, line)
+  bp_data.dig(:lines).nil? || bp_data[:lines].include?(line)
+end
+%>
+
+resource_types:
+- name: depwatcher
+  type: docker-image
+  source:
+    repository: cfbuildpacks/depwatcher
+resources:
+- name: binary-builder
+  type: git
+  source:
+    uri: {{binary-builder-git-uri}}
+- name: buildpacks-ci
+  type: git
+  source:
+    uri: {{buildpacks-ci-git-uri-public}}
+    branch: build-cflinuxfs3-deps-144938923
+- name: builds
+  type: git
+  source:
+    uri: git@github.com:cloudfoundry/public-buildpacks-ci-robots
+    branch: multiple-stacks
+    paths: [ binary-builds-new/ ]
+    private_key: {{public-buildpacks-ci-robots-private-key}}
+
+<% stacks.each do |stack| %>
+- name: <%= stack %>-image
+  type: docker-image
+  source: {repository: cloudfoundry/<%= stack %>}
+<% end %>
+
+<% dependencies.values.map{|dep| dep[:buildpacks].keys}.flatten.uniq.each do |buildpack| %>
+- name: <%= buildpack %>-buildpack
+  type: git
+  source:
+    uri: git@github.com:cloudfoundry/<%= buildpack %>-buildpack.git
+    private_key: {{<%= buildpack %>-buildpack-private-key}}
+    branch: multiple-stacks
+- name: <%= buildpack %>-buildpack-master
+  type: git
+  source:
+    uri: git@github.com:cloudfoundry/<%= buildpack %>-buildpack.git
+    private_key: {{<%= buildpack %>-buildpack-private-key}}
+    branch: master
+<% end %>
+
+<% dependencies.each do |dep_name, dep| %>
+<%
+  lines = dep[:buildpacks].values.reduce([]) {|sum, bp| sum | (bp[:lines] || [])}
+  lines.push('latest')
+  lines.each do |line|
+%>
+- name: source-<%=dep_name%>-<%= line %>
+  type: depwatcher
+  check_every: 1h
+  source:
+    type: <%= dep[:source_type] || dep_name %>
+    name: <%= dep_name %>
+    <% if line != 'latest' %>
+    version_filter: <%= line %>
+    <% end %>
+    <% (dep[:source_params] || []).each do |param| %>
+    <%= param %>
+    <% end %>
+<% end %>
+
+<% if !dep[:third_party_hosted] && dep_name.to_s != 'dotnet-framework' %>
+- name: buildpacks-bucket-<%=dep_name%>
+  type: s3
+  source:
+    bucket: {{buildpacks-binaries-s3-bucket}}
+    access_key_id: {{pivotal-buildpacks-s3-access-key}}
+    secret_access_key: {{pivotal-buildpacks-s3-secret-key}}
+    # godep has versions of the form 'v80'; everyone else uses 'v1.2.3'
+    regexp: dependencies/<%=dep_name%>/<%=dep_name.to_s == 'nginx-static' ? 'nginx' : dep_name %>.*<%= dep_name.to_s == 'godep' ? '(\d+)' : '(\d+.\d+.\d+)' %>(.*)
+<% end %>
+<% end %>
+
+jobs:
+<% dependencies.each do |dep_name, dep| %>
+<%
+  version_lines = dep[:buildpacks].values.reduce([]) {|sum, bp| sum | (bp[:lines] || [])}
+  version_lines = ['latest'] if version_lines.empty?
+%>
+<% if is_multiline?(dep) %>
+- name: create-<%= dep_name %>-new-line-story
+  serial: true
+  public: true
+  plan:
+  - aggregate:
+    - get: buildpacks-ci
+    - get: source
+      resource: source-<%= dep_name %>-latest
+      trigger: true
+      version: every
+  - do:
+    - task: create-new-version-line-story
+      file: buildpacks-ci/tasks/build-binary-new/create-new-version-line-story.yml
+      params:
+        TRACKER_PROJECT_ID: {{cf-buildpacks-public-tracker-id}}
+        TRACKER_REQUESTER_ID: {{cf-buildpacks-requester-id}}
+        TRACKER_API_TOKEN: {{pivotal-tracker-api-token}}
+        BUILDPACKS: <%= dep[:buildpacks].keys.join(' ') %>
+        EXISTING_VERSION_LINES: <%= version_lines.join(' ') %>
+<% end %>
+
+<% version_lines.each do |line| %>
+<% if dep_name.to_s != 'dotnet-framework' %>
+- name: create-<%=dep_name%>-<%= line %>-story
+  serial: true
+  public: true
+  plan:
+  - aggregate:
+    - get: buildpacks-ci
+    - get: source
+      resource: source-<%=dep_name%>-<%= line %>
+      trigger: true
+      version: every
+    - get: builds
+  - do:
+    - task: create-tracker-story
+      file: buildpacks-ci/tasks/build-binary-new/create.yml
+      params:
+        TRACKER_PROJECT_ID: {{cf-buildpacks-public-tracker-id}}
+        TRACKER_REQUESTER_ID: {{cf-buildpacks-requester-id}}
+        TRACKER_API_TOKEN: {{pivotal-tracker-api-token}}
+        BUILDPACKS: <%= dep[:buildpacks].select{ |_, bp_data| bp_uses_line?(bp_data,line) }.keys.join(' ') %>
+    - put: builds
+      params:
+        repository: builds-artifacts
+        rebase: true
+
+- name: finish-<%=dep_name%>-<%= line %>-story
+  serial: true
+  public: true
+  plan:
+  - aggregate:
+    - get: buildpacks-ci
+    - get: source
+      resource: source-<%=dep_name%>-<%= line %>
+      trigger: true
+      version: every
+      passed:
+      <% dep[:buildpacks].each do |bp_name, bp_data| %>
+      <% if bp_uses_line?(bp_data, line) %>
+      - update-<%=dep_name%>-<%= line %>-<%= bp_name %>
+      <% end %>
+      <% end %>
+    - get: builds
+  - do:
+    - task: finish-<%=dep_name%>-<%= line %>-story
+      file: buildpacks-ci/tasks/build-binary-new/finish.yml
+      params:
+        TRACKER_API_TOKEN: {{pivotal-tracker-api-token}}
+        TRACKER_PROJECT_ID: {{cf-buildpacks-public-tracker-id}}
+
+- name: build-<%=dep_name%>-<%= line %>
+  serial: true
+  public: true
+  plan:
+  - aggregate:
+    - get: buildpacks-ci
+    - get: binary-builder
+    - get: source
+      resource: source-<%=dep_name%>-<%= line %>
+      trigger: true
+      version: every
+      passed: [ create-<%=dep_name%>-<%= line %>-story ]
+    <% stacks.each do |stack| %>
+    - get: <%= stack %>-image
+    <% end %>
+    - get: builds
+  - aggregate:
+    <% build_stacks = dep[:any_stack] ? ['any-stack'] : stacks %>
+    <% build_stacks.each do |stack| %>
+    <% unless skip_build.include?({ dep: dep_name.to_s, line: line, stack: stack}) %>
+    - do:
+      - task: build-binary-<%= stack %>
+        image: <%= (stack == 'any-stack') ? stacks.last : stack %>-image
+        file: buildpacks-ci/tasks/build-binary-new/build.yml
+        output_mapping: {artifacts: <%= stack %>-artifacts, builds-artifacts: <%= stack %>-builds-metadata}
+        params:
+          STACK: <%= stack %>
+      - aggregate:
+        <% if !dep[:third_party_hosted] %>
+        - put: buildpacks-bucket-<%= dep_name %>-<%= stack %>
+          resource: buildpacks-bucket-<%= dep_name %>
+          params:
+            file: <%= stack %>-artifacts/<%= dep_name.to_s == "nginx-static" ? "nginx" : dep_name %>*
+        <% end %>
+        - put: builds-metadata-<%= stack %>
+          resource: builds
+          params:
+            repository: <%= stack %>-builds-metadata
+            rebase: true
+    <% end %>
+    <% end %>
+<% end %>
+
+<% if dep_name == :dotnet %>
+- name: extract-dotnet-framework-from-sdk-<%= line %>
+  serial: true
+  public: true
+  plan:
+    - aggregate:
+      - get: buildpacks-ci
+      - get: source
+        resource: source-<%=dep_name%>-<%= line %>
+        trigger: true
+        version: every
+        passed: [ build-<%=dep_name%>-<%= line %> ]
+      - get: builds
+    - aggregate:
+      - do:
+        <% stacks.each do |stack| %>
+        <% unless skip_build.include?({ dep: dep_name.to_s, line: line, stack: stack}) %>
+        - task: extract-dotnet-framework-<%= stack %>
+          file: buildpacks-ci/tasks/extract-dotnet-framework/task.yml
+          params:
+            STACK: <%= stack %>
+        - task: push-binary
+          file: buildpacks-ci/tasks/push-binary/task.yml
+          params:
+            DEPENDENCY: dotnet-framework
+            BUCKET_NAME: {{buildpacks-binaries-s3-bucket}}
+            AWS_ACCESS_KEY_ID: {{pivotal-buildpacks-s3-access-key}}
+            AWS_SECRET_ACCESS_KEY: {{pivotal-buildpacks-s3-secret-key}}
+            AWS_DEFAULT_REGION: us-east-1
+            TEST_CREDENTIAL_FILTER_WHITELIST: BUCKET_NAME
+            STACK: <%= stack %>
+        - put: builds
+          params:
+            repository: builds-artifacts
+            rebase: true
+        <% end %>
+        <% end %>
+<% end %>
+
+<% if dep_name.to_s == 'dotnet-framework' %>
+- name: update-dotnet-framework-<%= line %>-dotnet-core
+  serial: true
+  public: true
+  plan:
+  - aggregate:
+    - get: buildpack
+      resource: dotnet-core-buildpack
+    - get: buildpack-master
+      resource: dotnet-core-buildpack-master
+    - get: buildpacks-ci
+    - get: builds
+    - get: source
+      resource: source-dotnet-framework-<%= line %>
+      version: every
+      trigger: true
+  - do:
+    - task: update-buildpack-dependency
+      file: buildpacks-ci/tasks/update-buildpack-dependency/task.yml
+      params:
+        VERSION_LINE: 'minor'
+        REMOVAL_STRATEGY: 'keep_all'
+        CF_STACKS: 'cflinuxfs2'
+    - put: dotnet-core-buildpack
+      params:
+        repository: artifacts
+        rebase: true
+<% end %>
+<% end %>
+
+<% dep[:buildpacks].each do |bp_name, bp| %>
+  <% (bp[:lines] || ['latest']).each do |line| %>
+  <% if dep_name.to_s != 'dotnet-framework' %>
+- name: update-<%=dep_name%>-<%= line %>-<%= bp_name %>
+  serial: true
+  public: true
+  plan:
+  - aggregate:
+    - get: buildpack
+      resource: <%= bp_name %>-buildpack
+    - get: buildpack-master
+      resource: <%= bp_name %>-buildpack-master
+    - get: buildpacks-ci
+    - get: source
+      resource: source-<%=dep_name%>-<%= line %>
+      passed: [build-<%=dep_name%>-<%= line %>]
+      version: every
+      trigger: true
+    - get: builds
+  - do:
+    - task: update-buildpack-dependency
+      file: buildpacks-ci/tasks/update-buildpack-dependency/task.yml
+      params:
+        VERSION_LINE: <%= if dep_name == :nginx && bp_name == :nginx then 'nginx' else get_version_line_type(bp[:lines]) end %>
+        REMOVAL_STRATEGY: <%= bp.fetch(:removal_strategy, 'remove_all') %>
+    - put: <%= bp_name %>-buildpack
+      params:
+        repository: artifacts
+        rebase: true
+  <% end %>
+  <% end %>
+<% end %>
+<% end %>
+
+groups:
+  - name: all
+    jobs:
+<% dependencies.each do |dep_name, dep| %>
+<%
+  version_lines = dep[:buildpacks].values.reduce([]) {|sum, bp| sum | (bp[:lines] || [])}
+  version_lines = ['latest'] if version_lines.empty?
+%>
+    <% if is_multiline?(dep) %>
+    - create-<%= dep_name %>-new-line-story
+    <% end %>
+    <% version_lines.each do |line| %>
+    <% if dep_name.to_s != 'dotnet-framework' %>
+    - create-<%=dep_name%>-<%= line %>-story
+    - finish-<%=dep_name%>-<%= line %>-story
+    - build-<%=dep_name%>-<%= line %>
+    <% end %>
+    <% if dep_name == :dotnet %>
+    - extract-dotnet-framework-from-sdk-<%= line %>
+    <% end %>
+    <% end %>
+    <% dep[:buildpacks].each do |bp_name, bp| %>
+    <% (bp[:lines] || ['latest']).each do |line| %>
+    - update-<%=dep_name%>-<%= line %>-<%= bp_name %>
+    <% end %>
+<% end %>
+<% end %>
+
+<% dependencies.each do |dep_name, dep| %>
+<%
+  version_lines = dep[:buildpacks].values.reduce([]) {|sum, bp| sum | (bp[:lines] || [])}
+  version_lines = ['latest'] if version_lines.empty?
+%>
+  - name: <%= dep_name %>
+    jobs:
+    <% if is_multiline?(dep) %>
+    - create-<%= dep_name %>-new-line-story
+    <% end %>
+    <% version_lines.each do |line| %>
+    <% if dep_name.to_s != 'dotnet-framework' %>
+    - create-<%=dep_name%>-<%= line %>-story
+    - finish-<%=dep_name%>-<%= line %>-story
+    - build-<%=dep_name%>-<%= line %>
+    <% end %>
+    <% if dep_name == :dotnet %>
+    - extract-dotnet-framework-from-sdk-<%= line %>
+    <% end %>
+    <% end %>
+    <% dep[:buildpacks].each do |bp_name, bp| %>
+    <% (bp[:lines] || ['latest']).each do |line| %>
+    - update-<%=dep_name%>-<%= line %>-<%= bp_name %>
+    <% end %>
+    <% end %>
+<% end %>
