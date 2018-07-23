@@ -336,6 +336,7 @@ when 'python'
   })
 when 'httpd'
   Dir.chdir('binary-builder') do
+    run('apt', 'update')
     run('apt-get', 'install', '-y', 'libssl-dev', 'libldap2-dev')
     run('./bin/binary-builder', '--name=httpd', "--version=#{version}", "--sha256=#{data.dig('version', 'sha256')}")
   end
@@ -388,6 +389,7 @@ when 'nginx'
   destdir = Dir.mktmpdir
   Dir.mktmpdir do |dir|
     Dir.chdir(dir) do
+      run('apt', 'update')
       run('apt-get', 'install', '-y', 'libssl-dev')
       run('wget', data.dig('version', 'url'))
       # TODO validate pgp
@@ -438,6 +440,7 @@ when 'nginx'
 when 'nginx-static'
   old_sha = Digest::SHA256.hexdigest(open(data.dig('version', 'url')).read)
   Dir.chdir('binary-builder') do
+    run('apt', 'update')
     run('apt-get', 'install', '-y', 'libssl-dev')
     run('./bin/binary-builder', '--name=nginx', "--version=#{version}", "--sha256=#{old_sha}")
   end
