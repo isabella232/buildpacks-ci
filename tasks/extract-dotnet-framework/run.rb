@@ -83,7 +83,7 @@ class ExtractDotnetFramework
       md5sum = Digest::MD5.file(dotnet_framework_tar(version)).hexdigest
       shasum = Digest::SHA256.file(dotnet_framework_tar(version)).hexdigest
 
-      output_file = dotnet_framework_tar(version).gsub('.tar.xz', "-#{shasum[0..7]}.tar.xz")
+      output_file = dotnet_framework_tar(version).gsub('.tar.xz', "-#{ENV['STACK']}-#{shasum[0..7]}.tar.xz")
       FileUtils.mv(dotnet_framework_tar(version), output_file)
 
       framework_build_data = {

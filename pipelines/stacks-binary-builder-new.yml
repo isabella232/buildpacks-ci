@@ -124,7 +124,11 @@
 stacks = ['cflinuxfs2', 'cflinuxfs3']
 windows_stacks = ['windows2012R2', 'windows2016']
 
-skip_build = [{ dep: 'python', line: '3.7.X', stack: 'cflinuxfs2' }]
+skip_build = [
+  { dep: 'python', line: '3.7.X', stack: 'cflinuxfs2' },
+  { dep: 'php', line: '5.6.X', stack: 'cflinuxfs3'},
+  { dep: 'dotnet', line: '1.0.X', stack: 'cflinuxfs3' },
+]
 
 def validate_dependencies(deps)
   deps.each do |dep_name, dep|
@@ -375,7 +379,8 @@ jobs:
     - aggregate:
       - do:
         <% stacks.each do |stack| %>
-        - task: extract-dotnet-framework
+        <% unless skip_build.include?({ dep: dep_name.to_s, line: line, stack: stack}) %>
+        - task: extract-dotnet-framework-<%= stack %>
           file: buildpacks-ci/tasks/extract-dotnet-framework/task.yml
           params:
             STACK: <%= stack %>
@@ -393,6 +398,7 @@ jobs:
           params:
             repository: builds-artifacts
             rebase: true
+        <% end %>
         <% end %>
 <% end %>
 

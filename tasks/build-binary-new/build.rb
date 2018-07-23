@@ -162,7 +162,7 @@ when 'ruby'
   end
   old_file = "binary-builder/ruby-#{version}-linux-x64.tgz"
   sha = Digest::SHA256.hexdigest(open(old_file).read)
-  filename = "ruby-#{version}-linux-x64-#{sha[0..7]}.tgz"
+  filename = "ruby-#{version}-linux-x64-#{stack}-#{sha[0..7]}.tgz"
   FileUtils.mv(old_file, "artifacts/#{filename}")
 
   out_data.merge!({
