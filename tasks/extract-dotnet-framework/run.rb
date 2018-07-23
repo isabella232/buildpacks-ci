@@ -22,7 +22,15 @@ sdk_version = build_file['version']
 tracker_story_id = build_file['tracker_story_id']
 
 class ExtractDotnetFramework
-  def initialize(buildpacks_ci_dir, sdk_version, dotnet_sdk_dependency_url, git_commit_sha, sdk_source_url, tracker_story_id)
+  def initialize(
+      buildpacks_ci_dir,
+      sdk_version,
+      dotnet_sdk_dependency_url,
+      git_commit_sha,
+      sdk_source_url,
+      tracker_story_id,
+      stack
+  )
     @buildpacks_ci_dir = buildpacks_ci_dir
     @sdk_version = sdk_version
     @dotnet_sdk_dependency_url = dotnet_sdk_dependency_url
@@ -32,6 +40,8 @@ class ExtractDotnetFramework
     @dotnet_sdk_tar = File.join("/tmp", "dotnet_sdk.tar.xz")
     @dotnet_sdk_dir = File.join("/tmp", "dotnet_sdk")
     @tracker_story_id = tracker_story_id
+
+    @stack = stack
   end
 
   def run
@@ -78,12 +88,12 @@ class ExtractDotnetFramework
     end
 
     @dotnet_framework_versions.each do |version|
-      framework_build_file = File.join(output_dir, 'binary-builds-new', 'dotnet-framework', "#{version}.json")
+      framework_build_file = File.join(output_dir, 'binary-builds-new', 'dotnet-framework', "#{version}-#{@stack}.json")
 
       md5sum = Digest::MD5.file(dotnet_framework_tar(version)).hexdigest
       shasum = Digest::SHA256.file(dotnet_framework_tar(version)).hexdigest
 
-      output_file = dotnet_framework_tar(version).gsub('.tar.xz', "-#{ENV['STACK']}-#{shasum[0..7]}.tar.xz")
+      output_file = dotnet_framework_tar(version).gsub('.tar.xz', "-#{@stack}-#{shasum[0..7]}.tar.xz")
       FileUtils.mv(dotnet_framework_tar(version), output_file)
 
       framework_build_data = {
@@ -116,4 +126,12 @@ class ExtractDotnetFramework
   end
 end
 
-ExtractDotnetFramework.new(buildpacks_ci_dir, sdk_version, dotnet_sdk_dependency_url, sdk_source_url, git_commit_sha, tracker_story_id).run
+ExtractDotnetFramework.new(
+    buildpacks_ci_dir,
+    sdk_version,
+    dotnet_sdk_dependency_url,
+    sdk_source_url,
+    git_commit_sha,
+    tracker_story_id,
+    stack
+).run
