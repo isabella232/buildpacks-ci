@@ -101,8 +101,14 @@ when 'pipenv'
       if Digest::MD5.hexdigest(open("pipenv-#{version}.tar.gz").read) != data.dig('version', 'md5_digest')
         raise 'MD5 digest does not match version digest'
       end
-      run('/usr/local/bin/pip', 'download', '--no-binary', ':all:', 'pytest-runner')
-      run('/usr/local/bin/pip', 'download', '--no-binary', ':all:', 'setuptools_scm')
+      [
+        'pytest-runner',
+        'setuptools_scm',
+        'parver',
+        'invoke'
+      ].each do |dep|
+        run('/usr/local/bin/pip', 'download', '--no-binary', ':all:', dep)
+      end
       run('tar', 'zcvf', "/tmp/pipenv-v#{version}.tgz", '.')
     end
   end
