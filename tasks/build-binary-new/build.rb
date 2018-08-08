@@ -99,6 +99,7 @@ when 'pipenv'
     Dir.chdir(dir) do
       [
         'virtualenv',
+        'parver',
         "pipenv==#{version}",
         'pytest-runner',
         'setuptools_scm'
