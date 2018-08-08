@@ -98,6 +98,7 @@ when 'pipenv'
   Dir.mktmpdir do |dir|
     Dir.chdir(dir) do
       [
+        'virtualenv',
         "pipenv==#{version}",
         'pytest-runner',
         'setuptools_scm'
