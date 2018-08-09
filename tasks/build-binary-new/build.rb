@@ -104,7 +104,8 @@ when 'pipenv'
       [
         'pytest-runner',
         'setuptools_scm',
-        'parver'
+        'parver',
+        'invoke'
       ].each do |dep|
         run('/usr/local/bin/pip', 'download', '--no-binary', ':all:', dep)
       end
