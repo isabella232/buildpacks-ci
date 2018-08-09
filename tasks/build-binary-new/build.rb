@@ -97,14 +97,16 @@ when 'pipenv'
   run('pip', 'install', '--upgrade', 'setuptools')
   Dir.mktmpdir do |dir|
     Dir.chdir(dir) do
+      run('/usr/local/bin/pip', 'download', '--no-binary', ':all:', "pipenv==#{version}")
+      if Digest::MD5.hexdigest(open("pipenv-#{version}.tar.gz").read) != data.dig('version', 'md5_digest')
+        raise 'MD5 digest does not match version digest'
+      end
       [
-        'virtualenv',
-        'parver',
-        "pipenv==#{version}",
         'pytest-runner',
-        'setuptools_scm'
-      ].each do |mod|
-        run('easy_install', '-zmaxd', dir, mod)
+        'setuptools_scm',
+        'parver'
+      ].each do |dep|
+        run('/usr/local/bin/pip', 'download', '--no-binary', ':all:', dep)
       end
       run('tar', 'zcvf', "/tmp/pipenv-v#{version}.tgz", '.')
     end
