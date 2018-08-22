@@ -31,33 +31,75 @@ class Builder
       version:          source_input.version,
       source:           { url: source_input.url }
     }
-    out_data[:source][:md5]    = source_input.md5 # TODO : fix by not including if null
-    out_data[:source][:sha256] = source_input.sha256 # TODO : fix by not including if null
+    out_data[:source][:md5]    = source_input.md5
+    out_data[:source][:sha256] = source_input.sha256
 
     case source_input.name
     when 'bundler'
       binary_builder.build(source_input)
-      out_data.merge!(artifact_output.move_dependency(source_input.name, "#{source_input.name}-#{source_input.version}.tgz", "#{source_input.name}-#{source_input.version}-#{stack}", 'tgz'))
+      out_data.merge!(
+        artifact_output.move_dependency(
+          source_input.name,
+          "#{binary_builder.base_dir}/#{source_input.name}-#{source_input.version}.tgz",
+          "#{source_input.name}-#{source_input.version}-#{stack}",
+          'tgz'
+        )
+      )
 
     when 'hwc'
       binary_builder.build(source_input)
-      out_data.merge!(artifact_output.move_dependency(source_input.name, "hwc-#{source_input.version}-windows-amd64.zip", "hwc-#{source_input.version}-windows-amd64", 'zip'))
+      out_data.merge!(
+        artifact_output.move_dependency(
+          source_input.name,
+          "#{binary_builder.base_dir}/hwc-#{source_input.version}-windows-amd64.zip",
+          "hwc-#{source_input.version}-windows-amd64",
+          'zip'
+        )
+      )
 
     when 'dep', 'glide', 'godep'
       binary_builder.build(source_input)
-      out_data.merge!(artifact_output.move_dependency(source_input.name, "#{source_input.name}-v#{source_input.version}-linux-x64.tgz", "#{source_input.name}-v#{source_input.version}-linux-x64-#{stack}", 'tgz'))
+      out_data.merge!(
+        artifact_output.move_dependency(
+          source_input.name,
+          "#{binary_builder.base_dir}/#{source_input.name}-v#{source_input.version}-linux-x64.tgz",
+          "#{source_input.name}-v#{source_input.version}-linux-x64-#{stack}",
+          'tgz'
+        )
+      )
 
     when 'go'
       binary_builder.build(source_input)
-      out_data.merge!(artifact_output.move_dependency(source_input.name, "go#{source_input.version}.linux-amd64.tar.gz", "go#{source_input.version}.linux-amd64-#{stack}", 'tar.gz'))
+      out_data.merge!(
+        artifact_output.move_dependency(
+          source_input.name,
+          "#{binary_builder.base_dir}/go#{source_input.version}.linux-amd64.tar.gz",
+          "go#{source_input.version}.linux-amd64-#{stack}",
+          'tar.gz'
+        )
+      )
 
     when 'node', 'httpd'
       binary_builder.build(source_input)
-      out_data.merge!(artifact_output.move_dependency(source_input.name, "#{source_input.name}-#{source_input.version}-linux-x64.tgz", "#{source_input.name}-#{source_input.version}-linux-x64-#{stack}", 'tgz'))
+      out_data.merge!(
+        artifact_output.move_dependency(
+          source_input.name,
+          "#{binary_builder.base_dir}/#{source_input.name}-#{source_input.version}-linux-x64.tgz",
+          "#{source_input.name}-#{source_input.version}-linux-x64-#{stack}",
+          'tgz'
+        )
+      )
 
     when 'nginx-static'
       source_input.sha256 = Digest::SHA256.hexdigest(open(source_input.url).read)
-      out_data.merge!(artifact_output.move_dependency('nginx', "nginx-#{source_input.version}-linux-x64.tgz", "nginx-#{source_input.version}-linux-x64-#{stack}", 'tgz'))
+      out_data.merge!(
+        artifact_output.move_dependency(
+          'nginx',
+          "nginx-#{source_input.version}-linux-x64.tgz",
+          "nginx-#{source_input.version}-linux-x64-#{stack}",
+          'tgz'
+        )
+      )
 
     when 'CAAPM', 'appdynamics', 'miniconda2', 'miniconda3'
       results           = check_sha(source_input)
@@ -85,7 +127,14 @@ class Builder
         Runner.run('apt-get', 'install', '-y', 'libssl1.0-dev')
       end
       binary_builder.build(source_input)
-      out_data.merge!(artifact_output.move_dependency('ruby', "ruby-#{source_input.version}-linux-x64.tgz", "ruby-#{source_input.version}-linux-x64-#{stack}", 'tgz'))
+      out_data.merge!(
+        artifact_output.move_dependency(
+          source_input.name,
+          "#{binary_builder.base_dir}/ruby-#{source_input.version}-linux-x64.tgz",
+          "#{source_input.name}-#{source_input.version}-linux-x64-#{stack}",
+          'tgz'
+        )
+      )
 
     when 'jruby'
       if /9.1.*/ =~ source_input.version
@@ -98,7 +147,14 @@ class Builder
         raise "Unsupported jruby version line #{source_input.version}"
       end
       binary_builder.build(source_input)
-      out_data.merge!(artifact_output.move_dependency('jruby', "jruby-#{source_input.version}_ruby-#{ruby_version}-linux-x64.tgz", "jruby-#{source_input.version}_ruby-#{ruby_version}-linux-x64-#{stack}", 'tgz'))
+      out_data.merge!(
+        artifact_output.move_dependency(
+          source_input.name,
+          "#{binary_builder.base_dir}/jruby-#{source_input.version}_ruby-#{ruby_version}-linux-x64.tgz",
+          "#{source_input.name}-#{source_input.version}_ruby-#{ruby_version}-linux-x64-#{stack}",
+          'tgz'
+        )
+      )
 
     when 'php'
       if source_input.version.start_with?("7")
@@ -115,7 +171,14 @@ class Builder
         extension_file = File.join($buildpacks_ci_dir, 'tasks', 'build-binary-new', "php72-extensions.yml")
       end
       binary_builder.build(source_input, "--php-extensions-file=#{extension_file}")
-      out_data.merge!(artifact_output.move_dependency("php#{phpV}", "php#{phpV}-#{source_input.version}-linux-x64.tgz", "php#{phpV}-#{source_input.version}-linux-x64-#{stack}", 'tgz'))
+      out_data.merge!(
+        artifact_output.move_dependency(
+          "php#{phpV}",
+          "#{binary_builder.base_dir}/php#{phpV}-#{source_input.version}-linux-x64.tgz",
+          "php#{phpV}-#{source_input.version}-linux-x64-#{stack}",
+          'tgz'
+        )
+      )
 
     when 'python'
       major, minor, _ = source_input.version.split('.')
@@ -124,7 +187,14 @@ class Builder
         Runner.run('apt-get', 'install', '-y', 'libssl1.0-dev')
       end
       binary_builder.build(source_input)
-      out_data.merge!(artifact_output.move_dependency('python', "python-#{source_input.version}-linux-x64.tgz", "python-#{source_input.version}-linux-x64-#{stack}", 'tgz'))
+      out_data.merge!(
+        artifact_output.move_dependency(
+          'python',
+          "#{binary_builder.base_dir}/python-#{source_input.version}-linux-x64.tgz",
+          "python-#{source_input.version}-linux-x64-#{stack}",
+          'tgz'
+        )
+      )
 
     when 'pipenv'
       old_file_path = "/tmp/pipenv-v#{source_input.version}.tgz"
@@ -143,7 +213,14 @@ class Builder
           Runner.run('tar', 'zcvf', old_file_path, '.')
         end
       end
-      out_data.merge!(artifact_output.move_dependency(source_input.name, old_file_path, "pipenv-v#{source_input.version}-#{stack}", 'tgz'))
+      out_data.merge!(
+        artifact_output.move_dependency(
+          source_input.name,
+          old_file_path,
+          "pipenv-v#{source_input.version}-#{stack}",
+          'tgz'
+        )
+      )
 
     when 'libunwind'
       built_path = File.join(Dir.pwd, 'built')
@@ -163,7 +240,14 @@ class Builder
         Runner.run('tar', 'czf', old_filename, 'include', 'lib')
       end
 
-      out_data.merge!(artifact_output.move_dependency(source_input.name, File.join(built_path, old_filename), "libunwind-#{source_input.version}-#{stack}", 'tar.gz'))
+      out_data.merge!(
+        artifact_output.move_dependency(
+          source_input.name,
+          File.join(built_path, old_filename),
+          "libunwind-#{source_input.version}-#{stack}",
+          'tar.gz'
+        )
+      )
 
     when 'r'
       artifacts  = "#{Dir.pwd}/artifacts"
@@ -208,7 +292,14 @@ class Builder
         end
       end
 
-      out_data.merge!(artifact_output.move_dependency(source_input.name, "artifacts/r-v#{source_input.version}.tgz", "r-v#{source_input.version}-#{stack}", 'tgz'))
+      out_data.merge!(
+        artifact_output.move_dependency(
+          source_input.name,
+          "artifacts/#{source_input.name}-v#{source_input.version}.tgz",
+          "#{source_input.name}-v#{source_input.version}-#{stack}",
+          'tgz'
+        )
+      )
       out_data[:source_sha256] = source_sha
 
     when 'nginx'
@@ -217,10 +308,10 @@ class Builder
       destdir    = Dir.mktmpdir
       Dir.mktmpdir do |dir|
         Dir.chdir(dir) do
-          Runner.run('wget', $data.dig('version', 'url'))
+          Runner.run('wget', source_input.url)
           # TODO validate pgp
-          Runner.run('tar', 'xf', "nginx-#{source_input.version}.tar.gz")
-          Dir.chdir("nginx-#{source_input.version}") do
+          Runner.run('tar', 'xf', "#{source_input.name}-#{source_input.version}.tar.gz")
+          Dir.chdir("#{source_input.name}-#{source_input.version}") do
             Runner.run(
               './configure',
               '--prefix=/',
@@ -254,11 +345,18 @@ class Builder
         end
       end
 
-      out_data.merge!(artifact_output.move_dependency(source_input.name, "artifacts/nginx-#{source_input.version}.tgz", "nginx-#{source_input.version}-linux-x64-#{stack}", 'tgz'))
+      out_data.merge!(
+        artifact_output.move_dependency(
+          source_input.name,
+          "artifacts/#{source_input.name}-#{source_input.version}.tgz",
+          "#{source_input.name}-#{source_input.version}-linux-x64-#{stack}",
+          'tgz'
+        )
+      )
       out_data[:source_pgp] = source_pgp
 
     when 'dotnet-sdk'
-      commit_sha = $data.dig('version', 'git_commit_sha') # TODO : fix
+      commit_sha = source_input.git_commit_sha
 
       GitClient.clone_repo('https://github.com/dotnet/cli.git', 'cli')
 
@@ -294,7 +392,14 @@ class Builder
         system('tar', 'Jcf', old_filepath, '.')
       end
 
-      out_data.merge!(artifact_output.move_dependency(source_input.name, old_filepath, "#{source_input.name}.#{source_input.version}.linux-amd64-#{stack}", 'tar.xz'))
+      out_data.merge!(
+        artifact_output.move_dependency(
+          source_input.name,
+          old_filepath,
+          "#{source_input.name}.#{source_input.version}.linux-amd64-#{stack}",
+          'tar.xz'
+        )
+      )
       out_data.merge!({
         version:        source_input.version,
         git_commit_sha: commit_sha
