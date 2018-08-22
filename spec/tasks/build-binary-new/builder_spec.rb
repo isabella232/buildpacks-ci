@@ -2,15 +2,16 @@
 
 require 'tmpdir'
 require 'fileutils'
-require_relative '../../../tasks/build-binary-new/build.rb'
+require_relative '../../../tasks/build-binary-new/builder'
 require_relative '../../../tasks/build-binary-new/source_input'
 require_relative '../../../tasks/build-binary-new/build_input'
 require_relative '../../../tasks/build-binary-new/build_output'
 require_relative '../../../tasks/build-binary-new/artifact_output'
 require_relative '../../../tasks/build-binary-new/binary_builder_wrapper'
 
-describe 'BuildBinaryNew' do
+describe 'Builder' do
   context 'when building python' do
+    subject { Builder.new }
     let(:binary_builder) { double(BinaryBuilderWrapper) }
     let(:source_input) { SourceInput.new('python', 'https://fake.com', '2.7.14', 'fake-md5', '') }
     let(:build_input) { double(BuildInput) }
@@ -37,7 +38,7 @@ describe 'BuildBinaryNew' do
         .with('python', 'python-2.7.14-linux-x64.tgz', 'python-2.7.14-linux-x64-cflinuxfs2', 'tgz')
         .and_return(sha256: 'fake-sha256', url: 'fake-url')
 
-      main(binary_builder, 'cflinuxfs2', source_input, build_input, build_output, artifact_output)
+      subject.execute(binary_builder, 'cflinuxfs2', source_input, build_input, build_output, artifact_output)
     end
   end
 end

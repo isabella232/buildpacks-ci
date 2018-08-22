@@ -28,6 +28,6 @@ describe 'SourceInput' do
     expect(source.url).to eq 'https://www.python.org/ftp/python/2.7.14/Python-2.7.14.tgz'
     expect(source.version).to eq '2.7.14'
     expect(source.md5).to eq 'cee2e4b33ad3750da77b2e85f2f8b724'
-    expect(source.sha256).to eq ''
+    expect(source.sha256).to eq nil
   end
 end

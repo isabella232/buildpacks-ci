@@ -1,7 +1,7 @@
 class BinaryBuilderWrapper
   attr_reader :base_dir
 
-  def initialize(base_dir = 'binary-builder', runner)
+  def initialize(runner, base_dir = 'binary-builder')
     @base_dir = base_dir
     @runner = runner
   end

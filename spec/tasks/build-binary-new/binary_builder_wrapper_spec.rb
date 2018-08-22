@@ -5,7 +5,7 @@ require_relative '../../../tasks/build-binary-new/source_input'
 describe 'BinaryBuilderWrapper' do
   let(:runner) { double('Runner') }
   let(:source_input) { SourceInput.new('fake-name', 'fake-url', 'version', nil, '123456') }
-  subject { BinaryBuilderWrapper.new(Dir.mktmpdir, runner) }
+  subject { BinaryBuilderWrapper.new(runner, Dir.mktmpdir) }
 
   context 'with an extension file' do
     it 'should run the old binary builder' do
