@@ -205,7 +205,7 @@ def main(binary_builder, stack, source_input, build_input, build_output)
     if source_input.version.start_with?('7.2.')
       extension_file = File.join($buildpacks_ci_dir, 'tasks', 'build-binary-new', "php72-extensions.yml")
     end
-    out_data.merge!(binary_builder.build('php', "--php-extensions-file=#{extension_file}", "php#{phpV}-#{source_input.version}-linux-x64.tgz", "php#{phpV}-#{source_input.version}-linux-x64-#{stack}", 'tgz'))
+    out_data.merge!(binary_builder.build("php#{phpV}", "--php-extensions-file=#{extension_file}", "php#{phpV}-#{source_input.version}-linux-x64.tgz", "php#{phpV}-#{source_input.version}-linux-x64-#{stack}", 'tgz'))
 
   when 'python'
     major, minor, _ = source_input.version.split('.')
