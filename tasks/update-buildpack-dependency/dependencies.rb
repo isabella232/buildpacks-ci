@@ -33,6 +33,15 @@ class Dependencies
     end
   end
 
+  def default_versions
+    if @removal_strategy == 'remove_all'
+      manifest['default_versions'] = manifest['default_versions'].map do |v|
+        v['version'] = resource_version if v['name'] == manifest_name
+        v
+      end
+    end
+  end
+
   private
 
   def latest?

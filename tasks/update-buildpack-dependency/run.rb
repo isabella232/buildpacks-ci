@@ -132,6 +132,7 @@ if !rebuilt && manifest_name == 'php' && manifest['language'] == 'php'
   php_defaults[varname] = resource_version
   if update_default
     php_defaults['PHP_DEFAULT'] = resource_version
+    # add php default update in manifest here?
   end
 end
 
