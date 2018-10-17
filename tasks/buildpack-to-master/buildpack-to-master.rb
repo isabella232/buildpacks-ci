@@ -16,7 +16,7 @@ class BuildpackToMaster
       c.access_token = @github_access_token
     end
 
-    @prev_sha = GitClient.get_commit_sha('repo', 1).chomp
+    @prev_sha = GitClient.get_commit_sha('repo', 2).chomp
     @sha = GitClient.get_commit_sha('repo', 0).chomp
 
     puts "SHA: #{@sha} :: PrevSHA: #{@prev_sha}"
