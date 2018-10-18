@@ -102,9 +102,17 @@ extensions:
   version: 4.1.1
   md5: 32488f1d214e60afc5e027ae2d1e895f
   klass: RedisPeclRecipe
+- name: solr
+  version: 2.4.0
+  md5: 2c9accf66681a3daaaf371bc07e44902
+  klass: PeclRecipe
 - name: stomp
   version: 2.0.2
   md5: 507c30184fde736e924cee20c56df061
+  klass: PeclRecipe
+- name: xdebug
+  version: 2.6.1
+  md5: 35cc0f2e8b7d40556a9ad9afd9c49aee
   klass: PeclRecipe
 - name: yaf
   version: 3.0.7
