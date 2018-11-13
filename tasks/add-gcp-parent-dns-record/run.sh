@@ -22,8 +22,8 @@ if [ "${DNS_NAME}" != "$(gcloud dns record-sets list --zone=buildpacks --type=NS
 
   gcloud dns record-sets transaction start --zone=buildpacks
 
-    # shellcheck disable=SC2086
-    gcloud dns record-sets transaction add ${NAMESERVERS} --name "${DNS_NAME}" --ttl=300 --type=NS --zone=buildpacks
+  # shellcheck disable=SC2086
+  gcloud dns record-sets transaction add ${NAMESERVERS} --name "${DNS_NAME}" --ttl=300 --type=NS --zone=buildpacks
 
   gcloud dns record-sets transaction execute --zone=buildpacks
 fi

@@ -3,17 +3,18 @@ platform: linux
 image_resource:
   type: docker-image
   source:
-    repository: cfbuildpacks/ci
+    repository: relintdockerhubpushbot/cf-deployment-concourse-tasks
+    tag: v5.27.0
 inputs:
   - name: buildpacks-ci
   - name: bosh-release
-  - name: env-repo
+  - name: bbl-state
 
 run:
   path: buildpacks-ci/tasks/upload-bosh-release/run.sh
 params:
-  BOSH_ENV:
-  # ^ relative to env-repo
+  BBL_STATE_DIR:
+  # ^ relative to bbl-state directory
   # path to bbl-state dir (to run eval "$(bbl print-env)")
   RELEASE:
   # ^ relative to bosh-release input
