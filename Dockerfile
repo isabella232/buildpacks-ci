@@ -2,6 +2,11 @@ FROM ruby:2.3-slim
 
 ENV LANG="C.UTF-8"
 
+ENV bosh_cli_version 5.3.1
+ENV bosh_cli_checksum 5017ea3be52a71c9c35ee015904f1e91f77cddc4a32f011e042cf4cdf33f7278
+ENV credhub_cli_version 2.1.0
+ENV terraform_version 0.11.10
+
 RUN apt-get update && apt-get install -y curl gnupg apt-transport-https
 
 COPY config/google-chrome-apt-key.pub /tmp/
@@ -64,22 +69,32 @@ RUN wget -O cf-cli.tgz 'https://packages.cloudfoundry.org/stable?release=linux64
   && cf install-plugin -r CF-Community "log-cache" -f
 
 # download the bosh2 CLI
-RUN curl https://s3.amazonaws.com/bosh-cli-artifacts/bosh-cli-2.0.45-linux-amd64 -o /usr/local/bin/bosh2 \
-  && [ bf04be72daa7da0c9bbeda16fda7fc7b2b8af51e = $(shasum -a 1 /usr/local/bin/bosh2 | cut -d' ' -f1) ] \
+RUN curl https://s3.amazonaws.com/bosh-cli-artifacts/bosh-cli-${bosh_cli_version}-linux-amd64 -o /usr/local/bin/bosh2 \
+  && [ ${bosh_cli_checksum} = $(shasum -a 256 /usr/local/bin/bosh2 | cut -d' ' -f1) ] \
   && chmod +x /usr/local/bin/bosh2 \
   && ln -s /usr/local/bin/bosh2 /usr/local/bin/bosh
 
+# credhub-cli
+RUN \
+  wget https://github.com/cloudfoundry-incubator/credhub-cli/releases/download/${credhub_cli_version}/credhub-linux-${credhub_cli_version}.tgz -P /tmp && \
+  tar xzvf /tmp/credhub-linux-${credhub_cli_version}.tgz -C /usr/local/bin && \
+  chmod +x /usr/local/bin/credhub
+
 # download bbl
-RUN wget -O /usr/local/bin/bbl 'https://github.com/cloudfoundry/bosh-bootloader/releases/download/v5.11.6/bbl-v5.11.6_linux_x86-64' \
-  && [ 2ee595a0b8bc2546151f26e5fb986f599c1149557c9e15791b0043844f881866 = $(shasum -a 256 /usr/local/bin/bbl | cut -d' ' -f1) ] \
+RUN wget -O /usr/local/bin/bbl 'https://github.com/cloudfoundry/bosh-bootloader/releases/download/v6.10.18/bbl-v6.10.18_linux_x86-64' \
+  && [ adeccd88a9d3ac370983c8aea20f989bdca8c53c2aa08521c1ed8c5b2a3b0ad0 = $(shasum -a 256 /usr/local/bin/bbl | cut -d' ' -f1) ] \
   && chmod +x /usr/local/bin/bbl
 
 # download terraform (used by bbl)
-RUN wget -O terraform.zip 'https://releases.hashicorp.com/terraform/0.10.8/terraform_0.10.8_linux_amd64.zip' \
-  && [ b786c0cf936e24145fad632efd0fe48c831558cc9e43c071fffd93f35e3150db = $(shasum -a 256 terraform.zip | cut -d' ' -f1) ] \
-  && funzip terraform.zip > /usr/local/bin/terraform \
-  && rm terraform.zip \
-  && chmod 755 /usr/local/bin/terraform
+RUN \
+  wget "https://releases.hashicorp.com/terraform/${terraform_version}/terraform_${terraform_version}_linux_amd64.zip" -P /tmp && \
+  cd /tmp && \
+  curl https://releases.hashicorp.com/terraform/${terraform_version}/terraform_${terraform_version}_SHA256SUMS | grep linux_amd64 | shasum -c - && \
+  unzip "/tmp/terraform_${terraform_version}_linux_amd64.zip" -d /tmp && \
+  mv /tmp/terraform /usr/local/bin/terraform && \
+  cd /usr/local/bin && \
+  chmod +x terraform && \
+  rm -rf /tmp/*
 
 #download spiff for spiffy things
 RUN wget -O spiff.zip 'https://github.com/cloudfoundry-incubator/spiff/releases/download/v1.0.8/spiff_linux_amd64.zip' \
