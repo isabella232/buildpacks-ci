@@ -323,13 +323,36 @@ jobs:
       resource: source-<%=dep_name%>-<%= line %>
       trigger: true
       version: every
-    <% dep.fetch(:monitored_deps, []).each do |monitored_dep_name| %>
-    - get: source-<%=monitored_dep_name%>-latest
+    <% dep.fetch(:monitored_deps, []).each_with_index do |monitored_dep_name, index| %>
+    - get: monitored-dep-<%= index %>
+      resource: source-<%=monitored_dep_name%>-latest
       trigger: true
       version: every
     <% end %>
     - get: builds
   - do:
+    <%= if dep.key? :monitored_deps %>
+    - task: do-something
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+            source:
+              repository: cfbuildpacks/ci
+        run:
+          path: bash
+          args:
+          - -cl
+          - buildpacks-ci/tasks/build-binary-new/transform_monitored_deps.rb
+        params:
+          DEP_COUNT: <%= dep[:monitored_deps].size %>
+        inputs:
+          <% dep[:monitored_deps].each_index do |index| %>
+          - name: monitored-dep-<%= index %>
+          <% end %>
+        outputs:
+          - name: all-monitored-deps
+    <% end %>
     - task: create-tracker-story
       file: buildpacks-ci/tasks/build-binary-new/create.yml
       params:
