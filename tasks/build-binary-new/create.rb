@@ -17,7 +17,7 @@ tracker_client = TrackerApi::Client.new(token: ENV['TRACKER_API_TOKEN'])
 buildpack_project = tracker_client.project(ENV['TRACKER_PROJECT_ID'])
 
 if File.file?('all-monitored-deps/data.json')
-  all_monitored_deps = JSON.parse(open('all-monitored-deps/data.json'))
+  all_monitored_deps = JSON.parse(open('all-monitored-deps/data.json').read)
   data[:packages] = all_monitored_deps
 end
 
