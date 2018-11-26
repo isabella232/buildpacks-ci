@@ -18,7 +18,7 @@ buildpack_project = tracker_client.project(ENV['TRACKER_PROJECT_ID'])
 
 if File.file?('all-monitored-deps/data.json')
   all_monitored_deps = JSON.parse(open('all-monitored-deps/data.json').read)
-  data[:packages] = all_monitored_deps
+  data['packages'] = all_monitored_deps
 end
 
 story = buildpack_project.create_story(
