@@ -3,13 +3,11 @@
 set -o errexit
 set -o nounset
 set -o pipefail
-
 set -x
 
 version=$(cat version/number)
 
 pushd "$RELEASE_DIR"
-
   if [ -n "${SECRET_ACCESS_KEY:+1}" ]; then
     echo "creating private.yml..."
     cat > config/private.yml <<EOF
@@ -33,18 +31,19 @@ EOF
 
   # we actually want globbing here, so:
   # shellcheck disable=SC2086
-
-  for language in $LANGUAGES; do
-    blob_name="${language}-buildpack"
-    if [ "$language" == "java" ]; then
-      blob_list=("../buildpack-zip/${language}-buildpack-offline*.zip")
+  i=0
+  for stack in $STACKS; do
+    blob_name="${LANGUAGE}-buildpack"
+    if [ "$LANGUAGE" == "java" ]; then
+      blob=$(find "../buildpack-zip-stack$i" -name "${LANGUAGE}-buildpack-offline*.zip")
     else
-      blob_list=("../buildpack-zip/${language}_buildpack-cached*.zip")
+      blob=$(find "../buildpack-zip-stack$i" -name "${LANGUAGE}_buildpack-cached*.zip")
     fi
+
     # shellcheck disable=SC2128
-    for blob in $blob_list; do
-      bosh2 -n add-blob $blob "$blob_name/$(basename $blob)"
-    done
+    bosh2 -n add-blob "$blob" "$blob_name/$(basename $blob)"
+
+    ((i=i+1))
   done
 
   bosh2 -n upload-blobs

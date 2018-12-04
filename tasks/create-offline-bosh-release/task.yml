@@ -6,16 +6,20 @@ image_resource:
     repository: cfbuildpacks/ci
 inputs:
   - name: buildpacks-ci
-  - name: buildpack-zip
+  - name: buildpack-zip-stack0
+    optional: true
+  - name: buildpack-zip-stack1
+    optional: true
   - name: version
   - name: release
 outputs:
   - name: release-artifacts
 params:
-  LANGUAGES:
+  LANGUAGE:
   RELEASE_NAME:
   RELEASE_DIR:
   ACCESS_KEY_ID:
   SECRET_ACCESS_KEY:
+  STACKS:
 run:
   path: buildpacks-ci/tasks/create-offline-bosh-release/run.sh
