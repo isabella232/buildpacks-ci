@@ -4,6 +4,7 @@ image_resource:
   type: docker-image
   source:
     repository: cfbuildpacks/ci
+    tag: go1.11.2
 inputs:
   - name: buildpacks-ci
   - name: buildpack
