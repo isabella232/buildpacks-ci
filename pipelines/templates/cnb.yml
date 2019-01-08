@@ -25,7 +25,6 @@ resource_types:
 
 resources: ############################################################################################################
   ## Git ##
-
   - name: buildpack-master
     type: git
     webhook_token: ob0aigh3
@@ -35,6 +34,7 @@ resources: #####################################################################
       branch: master
       ignore_paths:
         - CHANGELOG
+
   - name: buildpacks-ci
     type: git
     source:
@@ -64,6 +64,27 @@ resources: #####################################################################
 <% end %>
 
 jobs: ################################################################################################################
+<% if buildpacks[language]['launchable'] %>
+  - name: update-pack
+    serial: true
+    public: false
+    plan:
+      - aggregate:
+        - get: buildpacks-ci
+        - get: buildpack
+          resource: buildpack-master
+        - get: pack
+          resource: pack
+          trigger: true
+      - task: update-pack
+        file: buildpacks-ci/tasks/update-pack/task.yml
+      - put: buildpack
+        params:
+          repository: updated-buildpack
+          rebase: true
+<% end %>
+
+
   - name: specs-unit
     serial: true
     public: false
@@ -96,9 +117,6 @@ jobs: ##########################################################################
           trigger: true
           passed:
           - specs-unit
-        - get: pack
-          resource: pack
-          trigger: true
 <% cnb_images.each do |image_type| %>
         - get: cnb-<%= image_type %>-image
           params:
