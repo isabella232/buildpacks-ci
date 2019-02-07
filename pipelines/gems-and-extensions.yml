@@ -16,24 +16,18 @@ resources:
       uri: {{buildpack-packager-git-uri}}
       branch: master
       private_key: {{buildpack-packager-private-key}}
-  - name: buildpack-packager-github-release
-    type: github-release
+  - name: cnb-scripts
+    type: git
     source:
-      user: {{buildpacks-github-org}}
-      repository: buildpack-packager
-      access_token: {{buildpacks-github-token}}
+      uri: git@github.com:cloudfoundry/cnb-scripts.git
+      branch: master
+      private_key: {{cf-buildpacks-eng-github-ssh-key}}
   - name: machete
     type: git
     source:
       uri: {{machete-git-uri}}
       branch: master
       private_key: {{machete-private-key}}
-  - name: machete-github-release
-    type: github-release
-    source:
-      user: {{buildpacks-github-org}}
-      repository: machete
-      access_token: {{buildpacks-github-token}}
   - name: compile-extensions
     type: git
     source:
@@ -42,6 +36,27 @@ resources:
     type: git
     source:
       uri: https://github.com/cloudfoundry/libbuildpack.git
+
+  - name: buildpack-packager-github-release
+    type: github-release
+    source:
+      user: {{buildpacks-github-org}}
+      repository: buildpack-packager
+      access_token: {{buildpacks-github-token}}
+  - name: machete-github-release
+    type: github-release
+    source:
+      user: {{buildpacks-github-org}}
+      repository: machete
+      access_token: {{buildpacks-github-token}}
+  - name: pack
+    type: github-release
+    source:
+      repository: pack
+      user: buildpack
+      access_token: {{buildpacks-github-token}}
+
+
   - name: language-locks
     type: pool
     source:
@@ -57,6 +72,23 @@ resources:
       password: {{ci_cf_shared_password}}
       organization: pivotal
 jobs:
+  - name: update-pack-cli-for-cnbs
+    serial: true
+    public: true
+    plan:
+      - aggregate:
+        - get: buildpacks-ci
+        - get: cnb-scripts
+        - get: pack
+          trigger: true
+      - task: update-pack
+        file: buildpacks-ci/tasks/update-pack/task.yml
+      - put: cnb-scripts
+        resource: cnb-scripts
+        params:
+          repository: updated-cnb-scripts
+          rebase: true
+
   - name: libbuildpack-specs
     serial: true
     public: true
