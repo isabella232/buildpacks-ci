@@ -45,10 +45,9 @@ resources:
   - name: builder-image
     type: docker-image
     source:
-      repository: cfbuildpacks/node-cnb-builder
-      email: {{buildpacks-docker-user-email}}
-      username: {{buildpacks-docker-user-username}}
-      password: {{buildpacks-docker-user-password}}
+      repository: cloudfoundry/cnb
+      username: {{buildpacks-docker-username}}
+      password: {{buildpacks-docker-password}}
 
 # TODO: update this when lifecycle binaries are actually being released.
 #  - name: lifecycle
@@ -90,7 +89,7 @@ jobs:
           tag_file: version/version
           tag_prefix: "cflinuxfs3-v"
           tag_as_latest: true
-          get_params: {skip_download: true}
+          get_params: { skip_download: true }
       - put: version
         params:
           file: version/version
