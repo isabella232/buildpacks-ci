@@ -5,12 +5,12 @@ image_resource:
   source:
     repository: cfbuildpacks/ci
 inputs:
-  - name: buildpacks-ci
-  - name: buildpack
+- name: buildpacks-ci
+- name: buildpack
 outputs:
-  - name: release-artifacts
+- name: release-artifacts
 run:
   path: bash
   args:
-    - -cl
-    - buildpacks-ci/tasks/finalize-cnb/run.rb
+  - -cl
+  - buildpacks-ci/tasks/finalize-cnb/run.rb
