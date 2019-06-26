@@ -317,7 +317,7 @@ jobs:
         TRACKER_API_TOKEN: {{pivotal-tracker-api-token}}
         TRACKER_PROJECT_ID: '{{cf-buildpacks-public-tracker-id}}'
 
-<% if dep_name == 'node' %>
+<% if dep['copy_bionic'] %>
 - name: copy-<%=dep_name%>-<%= line %>-bionic
   plan:
   - aggregate:
@@ -331,6 +331,8 @@ jobs:
   - do:
     - task: write-bionic-metadata
       file: buildpacks-ci/tasks/write-bionic-metadata/task.yml
+      params:
+        DEP: <%= dep_name %>
     - put: bionic-builds-metadata
       resource: builds
       params:
@@ -423,7 +425,7 @@ jobs:
       resource: source-<%=dep_name%>-<%= line_hash['line'] %>
       <% unless deps_extracted_from_dotnet_sdk.include?(dep_name) %>
       <% must_pass = ["build-#{dep_name}-#{line_hash['line']}"] %>
-      <% must_pass.push("copy-#{dep_name}-#{line_hash['line']}-bionic") if bp_name.include? 'node-engine-cnb' %>
+      <% must_pass.push("copy-#{dep_name}-#{line_hash['line']}-bionic") if bp['uses_bionic'] %>
       passed: <%= must_pass %>
       <% end %>
       version: every
@@ -471,7 +473,7 @@ groups:
     <% unless deps_extracted_from_dotnet_sdk.include?(dep_name) %>
     - create-<%=dep_name%>-<%= line %>-story
     - finish-<%=dep_name%>-<%= line %>-story
-    <% if dep_name == 'node' %>
+    <% if dep['copy_bionic'] %>
     - copy-<%=dep_name%>-<%= line %>-bionic
     <% end %>
     - build-<%=dep_name%>-<%= line %>
@@ -495,7 +497,7 @@ groups:
     <% unless deps_extracted_from_dotnet_sdk.include?(dep_name) %>
     - create-<%=dep_name%>-<%= line %>-story
     - finish-<%=dep_name%>-<%= line %>-story
-    <% if dep_name == 'node' %>
+    <% if dep['copy_bionic'] %>
     - copy-<%=dep_name%>-<%= line %>-bionic
     <% end %>
     - build-<%=dep_name%>-<%= line %>

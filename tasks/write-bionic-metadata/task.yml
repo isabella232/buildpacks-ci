@@ -16,4 +16,5 @@ run:
   - -cl
   - buildpacks-ci/tasks/write-bionic-metadata/run.rb
 params:
+  DEP:
   STACK:

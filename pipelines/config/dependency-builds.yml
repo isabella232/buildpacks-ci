@@ -150,6 +150,16 @@ dependencies:
       - 'repo: cloudfoundry/hwc'
       - 'fetch_source: true'
     any_stack: true
+  icu:
+    source_params:
+      sldlsdlgj
+    copy_bionic: true
+    buildpacks:
+      dotnet-core-conf-cnb:
+        uses_bionic: true
+        lines:
+          - line: latest
+    source_type: icu
   jruby:
     buildpacks:
       ruby:
@@ -251,6 +261,7 @@ dependencies:
             link: https://nginx.org/
     source_type: nginx
   node:
+    copy_bionic: true
     buildpacks:
       nodejs:
         lines:
@@ -278,6 +289,7 @@ dependencies:
             deprecation_date: 2021-04-01
             link: https://github.com/nodejs/Release
       node-engine-cnb:
+        uses_bionic: true
         lines:
           - line: 8.X.X
             deprecation_date: 2019-12-01
@@ -513,6 +525,12 @@ skip_build:
   - dep: r
     line: 3.6.X
     stack: cflinuxfs2
+  - dep: icu
+    line: latest
+    stack: cflinuxfs2
+  - dep: icu
+    line: latest
+    stack: cflinuxfs3
 
 # only check deprecation dates for dotnet-runtime as they are redundant for sdk and aspnetcore
 skip_deprecation_check:

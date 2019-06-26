@@ -7,8 +7,8 @@ class SemanticVersion
   getter patch : Int32
   getter metadata : String | Nil
 
-  def initialize(@original : String)
-    m = @original.match /^v?(\d+)(\.(\d+))?(\.(\d+))?(.+)?/
+  def initialize(@original : String, @tag_regex = /^v?(\d+)(\.(\d+))?(\.(\d+))?(.+)?/)
+    m = @original.match @tag_regex
     if m
       @major = m[1].to_i
       @minor = m[3]? ? m[3].to_i : 0

@@ -15,6 +15,8 @@ when "github_releases"
   end
 when "github_tags"
   versions = Depwatcher::GithubTags.new.check(source["repo"].to_s, source["tag_regex"].to_s)
+when "icu"
+  versions = Depwatcher::Icu.new.check(source["repo"].to_s, false)
 when "jruby"
   versions = Depwatcher::JRuby.new.check()
 when "miniconda"
