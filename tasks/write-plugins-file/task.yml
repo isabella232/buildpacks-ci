@@ -6,13 +6,10 @@ image_resource:
     repository: cfbuildpacks/ci
 inputs:
   - name: buildpacks-ci
-outputs:
-  - name: environment-locks
+  - name: plugins-repo
+  - name: stack-auditor
+  - name: version
+
 run:
-  path: bash
-  args:
-    - -cl
-    - buildpacks-ci/tasks/write-env-locks/run.rb
-params:
-  ENVIRONMENT:
-  NUMBER_OF_LOCKS:
+  path: buildpacks-ci/tasks/update-pack/run.sh
+
