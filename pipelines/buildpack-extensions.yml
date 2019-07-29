@@ -139,17 +139,16 @@ jobs: ##########################################################################
         params:
           file: version/version
 
-#- name: generate-PR-for-cli-plugins-repo
-#    public: true
-#    plan:
-#      - get: stack-auditor
-#        passed: [ ship-it ]
-#        trigger: true
-#      - get: buildpacks-ci
-#      - get: version
-#      - get: plugins-repo
-#      - task: write-plugins-file
-#        file: buildpacks-ci/tasks/write-plugins-file/task.yml
+  - name: generate-PR-for-cli-plugins-repo
+    plan:
+      - get: buildpacks-ci
+      - get: version
+        passed: [ ship-it ]
+        trigger: true
+      - get: cli-plugin-repo
+      - task: write-plugins-file
+        file: buildpacks-ci/tasks/write-plugins-file/task.yml
+      - put: cli-plugin-repo
 
   - name: release-stack-auditor-to-pivnet
     public: true
