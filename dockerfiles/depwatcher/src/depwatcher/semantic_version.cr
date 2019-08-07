@@ -19,7 +19,7 @@ class SemanticVersion
     end
   end
 
-  def <=>(other : self) : Int32
+  def <=>(other : self) : Int32 # Comparator
     r = major <=> other.major
     return r if r != 0
     r = minor <=> other.minor

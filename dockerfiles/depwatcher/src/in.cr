@@ -1,3 +1,7 @@
+# { 
+# "source":{"type":"ruby","name":"ruby", "version_filter": "2.4.X"}}
+# "version":{"ref":"2.4.6"}
+# }
 require "./depwatcher/*"
 require "json"
 
@@ -8,65 +12,61 @@ source = data["source"]
 version = data["version"]
 
 case type = source["type"].to_s
-when "github_releases"
-  version = if source["fetch_source"]? == JSON.parse("true")
-    Depwatcher::GithubReleases.new.in(source["repo"].to_s, version["ref"].to_s, dir)
-  else
-    Depwatcher::GithubReleases.new.in(source["repo"].to_s, source["extension"].to_s, version["ref"].to_s, dir)
-  end
-when "github_tags"
-  version = Depwatcher::GithubTags.new.in(source["repo"].to_s, version["ref"].to_s)
-when "jruby"
-  version = Depwatcher::JRuby.new.in(version["ref"].to_s)
-when "miniconda"
-  version = Depwatcher::Miniconda.new.in(source["generation"].to_s, version["ref"].to_s)
-when "rubygems"
-  version = Depwatcher::Rubygems.new.in(source["name"].to_s, version["ref"].to_s)
-when "rubygems_cli"
-  version = Depwatcher::RubygemsCli.new.in(version["ref"].to_s)
-when "pypi"
-  version = Depwatcher::Pypi.new.in(source["name"].to_s, version["ref"].to_s)
 when "ruby"
   version = Depwatcher::Ruby.new.in(version["ref"].to_s)
-when "php"
-  version = Depwatcher::Php.new.in(version["ref"].to_s)
-when "python"
-  version = Depwatcher::Python.new.in(version["ref"].to_s)
-when "go"
-  version = Depwatcher::Go.new.in(version["ref"].to_s)
-when "r"
-  version = Depwatcher::R.new.in(version["ref"].to_s)
-when "node"
-  version = Depwatcher::Node.new.in(version["ref"].to_s)
-when "npm"
-  version = Depwatcher::Npm.new.in(source["name"].to_s, version["ref"].to_s)
-when "nginx"
-  version = Depwatcher::Nginx.new.in(version["ref"].to_s)
-when "openresty"
-  version = Depwatcher::Openresty.new.in(version["ref"].to_s)
-when "httpd"
-  version = Depwatcher::Httpd.new.in(version["ref"].to_s)
-when "ca_apm_agent"
-  version = Depwatcher::CaApmAgent.new.in(version["ref"].to_s)
-when "appd_agent"
-  version = Depwatcher::AppDynamicsAgent.new.in(version["ref"].to_s)
-when "dotnet-sdk"
-  version = Depwatcher::DotnetSdk.new.in(version["ref"].to_s, source["tag_regex"].to_s)
-when "dotnet-runtime"
-  version = Depwatcher::DotnetRuntime.new.in(version["ref"].to_s)
-when "dotnet-aspnetcore"
-  version = Depwatcher::DotnetAspNetCore.new.in(version["ref"].to_s)
-when "rserve"
-  version = Depwatcher::CRAN.new.in("Rserve", version["ref"].to_s)
-when "forecast"
-  version = Depwatcher::CRAN.new.in("forecast", version["ref"].to_s)
-when "shiny"
-  version = Depwatcher::CRAN.new.in("shiny", version["ref"].to_s)
-when "plumber"
-  version = Depwatcher::CRAN.new.in("plumber", version["ref"].to_s)
-else
-  raise "Unknown type: #{type}"
 end
+
+require "./base"
+require "./github_tags"
+require "xml"
+
+module Depwatcher
+  class Ruby < Base
+    class Release
+      JSON.mapping(
+        ref: String,
+        url: String,
+        sha256: String,
+      )
+      def initialize(@ref : String, @url : String, @sha256 : String)
+      end
+    end
+
+    def check() : Array(Internal)
+      name = "ruby/ruby"
+      regexp = "^v\\d+_\\d+_\\d+$"
+      GithubTags.new(client).matched_tags(name, regexp).map do |r|
+        Internal.new(r.name.gsub("_", ".").gsub(/^v/, ""))
+      end.sort_by { |i| SemanticVersion.new(i.ref) }
+    end
+
+    def in(ref : String) : Release
+      releases().select do |r|
+        r.ref == ref
+      end.first
+    end
+
+    private def releases() : Array(Release)
+      response = client.get("https://www.ruby-lang.org/en/downloads/").body
+      doc = XML.parse_html(response)
+      lis = doc.xpath("//li/a[starts-with(text(),'Ruby ')]")
+      raise "Could not parse ruby website" unless lis.is_a?(XML::NodeSet)
+
+      lis = lis.reject { |item| item.to_s.includes? "preview" }
+      lis = lis.select { |item| item.to_s.match(/\d+/) }
+
+      lis.map do |a|
+        parent = a.parent
+        version = a.text.gsub(/^Ruby /, "")
+        url = a["href"]
+        m = /sha256: ([0-9a-f]+)/.match(parent.text) if parent.is_a?(XML::Node)
+        sha = m[1] if m
+        Release.new(version, url, sha) if url && sha
+      end.compact
+    end
+  end
+end
+
 
 if version
   File.write("#{dir}/data.json", { source: source, version: version }.to_json)

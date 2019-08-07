@@ -1,3 +1,9 @@
+# { 
+# "source":{"type":"ruby","name":"ruby", "version_filter": "2.4.X"}}
+# "version":{"ref":"2.4.5"}
+# }
+
+
 require "./depwatcher/*"
 require "json"
 
@@ -6,66 +12,62 @@ STDERR.puts data.to_json
 source = data["source"]
 
 case type = source["type"].to_s
-when "github_releases"
-  allow_prerelease = source["prerelease"]?
-  if allow_prerelease
-    versions = Depwatcher::GithubReleases.new.check(source["repo"].to_s, allow_prerelease.as_bool)
-  else
-    versions = Depwatcher::GithubReleases.new.check(source["repo"].to_s, false)
-  end
-when "github_tags"
-  versions = Depwatcher::GithubTags.new.check(source["repo"].to_s, source["tag_regex"].to_s)
-when "jruby"
-  versions = Depwatcher::JRuby.new.check()
-when "miniconda"
-  versions = Depwatcher::Miniconda.new.check(source["generation"].to_s)
-when "rubygems"
-  versions = Depwatcher::Rubygems.new.check(source["name"].to_s)
-when "rubygems_cli"
-  versions = Depwatcher::RubygemsCli.new.check
-when "pypi"
-  versions = Depwatcher::Pypi.new.check(source["name"].to_s)
 when "ruby"
   versions = Depwatcher::Ruby.new.check
-when "php"
-  versions = Depwatcher::Php.new.check
-when "python"
-  versions = Depwatcher::Python.new.check
-when "go"
-  versions = Depwatcher::Go.new.check
-when "r"
-  versions = Depwatcher::R.new.check
-when "npm"
-  versions = Depwatcher::Npm.new.check(source["name"].to_s)
-when "node"
-  versions = Depwatcher::Node.new.check
-when "nginx"
-  versions = Depwatcher::Nginx.new.check
-when "openresty"
-  versions = Depwatcher::Openresty.new.check
-when "httpd"
-  versions = Depwatcher::Httpd.new.check
-when "ca_apm_agent"
-  versions = Depwatcher::CaApmAgent.new.check
-when "appd_agent"
-  versions = Depwatcher::AppDynamicsAgent.new.check
-when "dotnet-sdk"
-  versions = Depwatcher::DotnetSdk.new.check(source["tag_regex"].to_s)
-when "dotnet-runtime"
-  versions = Depwatcher::DotnetRuntime.new.check
-when "dotnet-aspnetcore"
-  versions = Depwatcher::DotnetAspNetCore.new.check
-when "rserve"
-  versions = Depwatcher::CRAN.new.check("Rserve")
-when "forecast"
-  versions = Depwatcher::CRAN.new.check("forecast")
-when "plumber"
-  versions = Depwatcher::CRAN.new.check("plumber")
-when "shiny"
-  versions = Depwatcher::CRAN.new.check("shiny")
-else
-  raise "Unkown type: #{source["type"]}"
 end
+
+
+require "./base"
+require "./github_tags"
+require "xml"
+
+module Depwatcher
+  class Ruby < Base
+    class Release
+      JSON.mapping(
+        ref: String,
+        url: String,
+        sha256: String,
+      )
+      def initialize(@ref : String, @url : String, @sha256 : String)
+      end
+    end
+
+    def check() : Array(Internal)
+      name = "ruby/ruby"
+      regexp = "^v\\d+_\\d+_\\d+$" # semver
+      GithubTags.new(client).matched_tags(name, regexp).map do |r|
+        Internal.new(r.name.gsub("_", ".").gsub(/^v/, ""))
+      end.sort_by { |i| SemanticVersion.new(i.ref) } # -> [{Comparable semver objects}]
+    end
+
+    def in(ref : String) : Release
+      releases().select do |r|
+        r.ref == ref
+      end.first
+    end
+
+    private def releases() : Array(Release)
+      response = client.get("https://www.ruby-lang.org/en/downloads/").body
+      doc = XML.parse_html(response)
+      lis = doc.xpath("//li/a[starts-with(text(),'Ruby ')]")
+      raise "Could not parse ruby website" unless lis.is_a?(XML::NodeSet)
+
+      lis = lis.reject { |item| item.to_s.includes? "preview" }
+      lis = lis.select { |item| item.to_s.match(/\d+/) }
+
+      lis.map do |a|
+        parent = a.parent
+        version = a.text.gsub(/^Ruby /, "")
+        url = a["href"]
+        m = /sha256: ([0-9a-f]+)/.match(parent.text) if parent.is_a?(XML::Node)
+        sha = m[1] if m
+        Release.new(version, url, sha) if url && sha
+      end.compact
+    end
+  end
+end
+
 
 # Filter out irrelevant versions
 version_filter = source["version_filter"]?
@@ -85,4 +87,7 @@ if version
   end if ref
 end
 
-puts versions.to_json
+# output sorted array of versions
+puts versions.to_json # [{"ref":"2.4.5"},{"ref":"2.4.6"]
+
+# If there is a discrepency

@@ -1,0 +1,51 @@
+- name: source-<%=dep_name%>-<%= line %>
+  type: depwatcher
+  check_every: 1h
+  source:
+    type: <%= dep['source_type'] || dep_name %>
+    name: <%= dep_name %>
+    <% if line != 'latest' %>
+    version_filter: <%= line %>
+    <% end %>
+    <% (dep['source_params'] || []).each do |param| %>
+    <%= param %>
+    <% end %>
+<% end %>
+
+
+ruby:
+    buildpacks:
+      ruby:
+        lines:
+          - line: 2.4.X
+            deprecation_date: 2020-04-01
+            link: https://www.ruby-lang.org/en/news/2019/04/01/ruby-2-4-6-released/
+          - line: 2.5.X
+          - line: 2.6.X
+        removal_strategy: keep_latest_released
+      ruby-cnb:
+        lines:
+          - line: 2.4.X
+            deprecation_date: 2020-04-01
+            link: https://www.ruby-lang.org/en/news/2019/04/01/ruby-2-4-6-released/
+          - line: 2.5.X
+          - line: 2.6.X
+        removal_strategy: keep_latest_released
+
+
+- name: source-ruby-2.4.x
+  type: depwatcher
+  check_every: 1h
+  source:
+    type: ruby
+    name: ruby
+    version_filter: 2.4.x
+
+
+echo '{"source":{"type":"ruby","name":"ruby", "version_filter": "2.4.X" }}'
+
+https://buildpacks.ci.cf-app.com/teams/main/pipelines/dependency-builds?group=ruby
+
+Tracker story: https://github.com/cloudfoundry/public-buildpacks-ci-robots/commit/965bcd6a8c032bb61e7992ac440fc4cdb109a7e1
+
+Build metadat: https://github.com/cloudfoundry/public-buildpacks-ci-robots/commit/e124cf5a7dfa3f16b86700303918c4802b89125a
