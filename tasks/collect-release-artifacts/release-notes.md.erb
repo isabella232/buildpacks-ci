@@ -1,0 +1,18 @@
+
+
+# <%= @repo %> <%= @tag %>
+
+Below are the release notes for:
+
+<% @cnbs.each |cnb| do %>  
+  * <%= cnb.name %>
+<% end %>  
+
+Release notes:
+
+ <% @cnbs.each |cnb| do %>  
+ ## <%= cnb.name %>
+ <% cnb.dependencies %>
+ <% cnb.stacks %>
+ <% cnb.version_notes %>
+ <% end %> 
