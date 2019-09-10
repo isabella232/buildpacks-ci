@@ -38,6 +38,7 @@ pack_tar = Dir["pack/*.tgz"].first
 FileUtils.mkdir_p pack_path
 `tar xvf #{Dir.pwd}/#{pack_tar} -C #{pack_path}`
 
+# for language families this is not necessary. we should be using the release artifacts
 puts 'Building cnb packager...'
 Dir.chdir 'packager' do
   system 'go', 'build', '-o', packager_path, 'packager/main.go' or exit 1
