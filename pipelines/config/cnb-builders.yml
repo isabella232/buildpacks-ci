@@ -1,3 +1,4 @@
+#@data/values
 ---
 builders:
   cf-builder-tiny:
@@ -192,9 +193,9 @@ cnbs:
   p-containersecurityprovider:
     git_repo: "git@github.com:pivotal-cf/p-container-security-provider-cnb.git"
     private: true
-  # p-contrastsecurity:
-  #   git_repo: "git@github.com:pivotal-cf/p-contrast-security-cnb.git"
-  #   private: true
+#! p-contrastsecurity:
+#!   git_repo: "git@github.com:pivotal-cf/p-contrast-security-cnb.git"
+#!  private: true
   p-debug:
     git_repo: "git@github.com:pivotal-cf/p-debug-cnb"
     private: true
@@ -225,9 +226,9 @@ cnbs:
   p-distzip:
     git_repo: "git@github.com:pivotal-cf/p-dist-zip-cnb"
     private: true
-  # p-dynatrace:
-  #   git_repo: "git@github.com:pivotal-cf/p-dynatrace-cnb.git"
-  #   private: true
+#! p-dynatrace:
+#!   git_repo: "git@github.com:pivotal-cf/p-dynatrace-cnb.git"
+#!   private: true
   p-elasticapm:
     git_repo: "git@github.com:pivotal-cf/p-elastic-apm-cnb.git"
     private: true
@@ -252,9 +253,9 @@ cnbs:
   p-overops:
     git_repo: "git@github.com:pivotal-cf/p-overops-cnb.git"
     private: true
-  # p-qualys:
-  #   git_repo: "git@github.com:pivotal-cf/p-qualys-cnb.git"
-  #   private: true
+#! p-qualys:
+#!   git_repo: "git@github.com:pivotal-cf/p-qualys-cnb.git"
+#!   private: true
   p-riverbedappinternals:
     git_repo: "git@github.com:pivotal-cf/p-riverbed-appinternals-cnb.git"
     private: true
@@ -273,3 +274,7 @@ cnbs:
   p-yourkit:
     git_repo: "git@github.com:pivotal-cf/p-yourkit-cnb.git"
     private: true
+    
+cnb_child_images:
+- run
+- build

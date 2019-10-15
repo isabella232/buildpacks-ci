@@ -1,6 +1,7 @@
 ---
 bundler:
   auto_release: true
+  integration: false
 conda:
   integration: true
   auto_release: true
@@ -24,6 +25,7 @@ dotnet-core-build:
   auto_release: true
 go-compiler:
   auto_release: true
+  integration: false
 go-mod:
   integration: true
   auto_release: true
@@ -47,6 +49,7 @@ php-compat:
   auto_release: true
 php-dist:
   auto_release: true
+  integration: false
 php-composer:
   integration: true
   auto_release: true
@@ -67,6 +70,7 @@ python-compat:
   auto_release: true
 ruby:
   auto_release: true
+  integration: false
 yarn:
   integration: true
   auto_release: true

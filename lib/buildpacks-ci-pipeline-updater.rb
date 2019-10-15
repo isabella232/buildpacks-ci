@@ -20,7 +20,7 @@ class BuildpacksCIPipelineUpdater
       BuildpacksCIPipelineUpdateCommand.new.run!(
         concourse_target_name: concourse_target_name,
         pipeline_name: pipeline_name,
-        config_generation_command: "erb organization=#{organization} run_oracle_php_tests=#{run_php_oracle_tests} #{filename}",
+        config_generation_command: "erb language=#{""} organization=#{organization} run_oracle_php_tests=#{run_php_oracle_tests} #{filename}",
         options: options
       )
     end
@@ -159,5 +159,17 @@ class BuildpacksCIPipelineUpdater
 
   def check_if_lastpass_installed
     raise '`brew install lastpass-cli` is required' if `which lpass` == ''
+  end
+
+  def config_generation_command(vars: , filename: )
+    ""
+    "erb language=#{""} organization=#{organization} run_oracle_php_tests=#{run_php_oracle_tests} #{filename}"
+    "erb language=#{language} organization=#{organization} pipelines/templates/metabuildpack-cnb.yml.erb"
+    "erb language=#{language} organization=#{organization} pipelines/templates/buildpack.yml.erb"
+    "erb language=#{language} organization=#{organization} pipelines/templates/cnb.yml.erb"
+    "erb language=#{language} organization=#{organization} #{vars} #{filename} pipelines/templates/metabuildpack-cnb.yml.erb"
+    "erb rootfs_name=#{rootfs_name} cve_notification_file=ubuntu18.04.yml pipelines/templates/cflinuxfsn.yml.erb"
+
+    "erb language=#{language} organization=#{organization} #{vars} #{filename} pipelines/templates/metabuildpack-cnb.yml.erb"
   end
 end
