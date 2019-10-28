@@ -1,7 +1,8 @@
 require 'pry'
 require 'yaml'
+require 'json'
 
-builder_groups = JSON.load(`docker inspect gcr.io/cf-buildpacks/p-cnb-builder:0.0.16-cflinuxfs3 | jq -r .[].Config.Labels | jq -r '.["io.buildpacks.builder.metadata"]'`)
+builder_groups = JSON.load(`docker inspect gcr.io/cf-buildpacks/p-cnb-builder@sha256:ceff9ff6206dc542788379495878e4e34385803ba46cdb970d71f00349690067 | jq -r .[].Config.Labels | jq -r '.["io.buildpacks.builder.metadata"]'`)
 builder_buildpacks = builder_groups['groups'].flat_map{|group| group['buildpacks']}
 builder_cnbs = YAML.load_file('./pipelines/config/cnb-builders.yml')['cnbs']
 
@@ -18,16 +19,17 @@ Dir.mktmpdir do |dir|
     release_metadata = releases.map do |release|
       repo = builder_cnbs.dig(release['id'], 'git_repo')
       if !repo
-        binding.pry
+        $STDERR.puts release['id']
         next
       end
       folder = repo.split('/')[-1].gsub('.git','')
 
 
-      `git -C #{folder} pull || git clone -q #{repo}`.strip
+      `git clone -q #{repo}`.strip
       commit = ''
       Dir.chdir(folder) do
-        commit = `git rev-list -n 1 v#{release['version']}`.strip
+        version = 'v' + release['version'].delete('v')
+        commit = `git rev-list -n 1 #{version}`.strip
       end
 
       {"release" => folder, 'repo' => repo, 'version' => release['version'], 'commit' => commit}
