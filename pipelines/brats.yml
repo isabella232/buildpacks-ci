@@ -1,25 +1,25 @@
-#@ new_brats = ["apt", "binary", "dotnet-core", "go", "nodejs", "python", "ruby", "staticfile", "php", "nginx"]
-#@ languages = [new_brats]
+#@ languages = ["apt", "binary", "dotnet-core", "go", "nodejs", "python", "ruby", "staticfile", "php", "nginx"]
 #@ stacks = {
-#@ "apt": ["cflinuxfs3"],
-#@ "binary": ["cflinuxfs3" "windows2012R2" "windows2016"],
-#@ "dotnet-core": ["cflinuxfs3"],
-#@ "go": ["cflinuxfs3"],
-#@ "multi": ["cflinuxfs3"],
-#@ "nginx": ["cflinuxfs3"],
-#@ "nodejs": ["cflinuxfs3"],
-#@ "php": ["cflinuxfs3"],
-#@ "python": ["cflinuxfs3"],
-#@ "ruby": ["cflinuxfs3"],
-#@ "staticfile": ["cflinuxfs3"],
-#@ "java": ["cflinuxfs3"]
+#@   "apt": ["cflinuxfs3"],
+#@   "binary": ["cflinuxfs3", "windows2012R2", "windows2016"],
+#@   "dotnet-core": ["cflinuxfs3"],
+#@   "go": ["cflinuxfs3"],
+#@   "multi": ["cflinuxfs3"],
+#@   "nginx": ["cflinuxfs3"],
+#@   "nodejs": ["cflinuxfs3"],
+#@   "php": ["cflinuxfs3"],
+#@   "python": ["cflinuxfs3"],
+#@   "ruby": ["cflinuxfs3"],
+#@   "staticfile": ["cflinuxfs3"],
+#@   "java": ["cflinuxfs3"]
 #@ }
 #@ pas_versions= {
 #@   "latest": "2_6",
 #@   "n-1": "2_5",
 #@   "n-2": "2_4",
 #@ }
-
+#@ lts = pas_versions["n-2"]
+#@yaml/text-templated-strings
 ---
 resource_types:
   - name: cron
@@ -57,6 +57,8 @@ resources:
       uri: git@github.com:cloudfoundry/public-buildpacks-ci-robots
 
   - name: lts-environments
+    type: pool
+    source:
       branch: master
       pool: lts-environments
       private_key: ((public-buildpacks-ci-robots-private-key))
@@ -76,28 +78,28 @@ resources:
       repository: buildpack-packager
       access_token: ((buildpacks-github-token))
 
-  - name: smith-environments-#@ pas_versions['n-2']
+  - name: "smith-environments-(@= lts @)"
     type: pcf-pool
     source:
       api_token: ((toolsmiths-api-token))
       hostname: environments.toolsmiths.cf-app.com
-      pool_name: us_#@ pas_versions['n-2']
+      pool_name: "us_(@= lts @)"
     tags:
     - buildpacks-eng-vsphere
 
-#@ for language in new_brats:
-  - name: buildpack-#@ language
+#@ for language in languages:
+  - name: "buildpack-(@= language @)"
     type: git
     webhook_token: ob0aigh3
     source:
-      uri: git@github.com:cloudfoundry/(@= language @)-buildpack.git
-      private_key: (((@= language @)-buildpack-private-key))
+      uri: "git@github.com:cloudfoundry/(@= language @)-buildpack.git"
+      private_key: "(((@= language @)-buildpack-private-key))"
       branch: master
 #@ end
 
 jobs:
 #@ for language in languages:
-  - name: brats-#@ language -lts
+  - name: "brats-(@= language @)-lts"
     serial: true
     public: true
     plan:
@@ -107,11 +109,11 @@ jobs:
             acquire: true
         - get: buildpacks-ci
         - get: buildpack
-          resource: buildpack-#@ language
+          resource: "buildpack-(@= language @)"
         - get: nightly-trigger
           trigger: true
       - do:
-        - put: smith-environments-#@ pas_versions['n-2']
+        - put: "smith-environments-(@= lts @)"
           params:
             action: claim
           tags:
@@ -119,28 +121,28 @@ jobs:
         - task: create-cf-space
           file: buildpacks-ci/tasks/create-cf-space-toolsmiths/task.yml
           input_mapping:
-            environment: smith-environments-#@ pas_versions['n-2']
+            environment: "smith-environments-(@= lts @)"
           params:
             ORG: pivotal
         - task: run-brats-cflinuxfs3
           file: buildpacks-ci/tasks/run-bp-brats/task.yml
-          attempts: #@ if language == "ruby" then 3 else 1 end
+          attempts: #@ 3 if language == "ruby" else 1
           params:
             CF_STACK: cflinuxfs3
             GINKGO_ATTEMPTS: 4
             GINKGO_NODES: 6
         ensure:
           in_parallel:
-          - put: smith-environments-#@ pas_versions['n-2']
+          - put: "smith-environments-(@= lts @)"
             params:
               action: unclaim
-              env_file: smith-environments-#@ pas_versions['n-2'] /metadata
+              env_file: "smith-environments-(@= lts @)/metadata"
             tags:
             - buildpacks-eng-vsphere
           - put: lts-environments
             params:
               release: lts-environments
-  - name: brats-#@ language -edge
+  - name: "brats-(@= language @)-edge"
     serial: true
     public: true
     plan:
@@ -151,25 +153,25 @@ jobs:
         - get: buildpacks-ci
         - get: env-repo
         - get: buildpack
-          resource: buildpack-#@ language
+          resource: "buildpack-(@= language @)"
         - get: nightly-trigger
           trigger: true
       - in_parallel:
-#@ for/end stack in stacks[language]:
+  #@ for stack in stacks[language]:
         - do:
           - task: create-cf-space
             attempts: 3
             file: buildpacks-ci/tasks/create-cf-space/task.yml
-            output_mapping: {cf-space: cf-space-(@= stack @) }
+            output_mapping: {cf-space: "cf-space-(@= stack @)" }
             params:
               ENV_POOL_RESOURCE: edge-environments
               ENVS_DIR: env-repo
               ORG: pivotal
-              SYSTEM_DOMAIN: buildpacks-gcp.ci.cf-app.com
+              SYSTEM_DOMAIN: builldpacks-gcp.ci.cf-app.com
               USERNAME: admin
           - task: run-brats-#@ stack
             file: buildpacks-ci/tasks/run-bp-brats/task.yml
-            input_mapping: {cf-space: cf-space-(@= stack @) }
+            input_mapping: {cf-space: "cf-space-(@= stack @)" }
             params:
               CF_STACK: #@ stack
               GINKGO_ATTEMPTS: 4
@@ -177,7 +179,8 @@ jobs:
             ensure:
               task: delete-cf-space
               file: buildpacks-ci/tasks/delete-cf-space/task.yml
-              input_mapping: {cf-space: cf-space-(@= stack @) }
+              input_mapping: {cf-space: "cf-space-(@= stack @)" }
+  #@ end
     ensure:
       put: edge-environments
       params:

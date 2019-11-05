@@ -44,6 +44,7 @@ class BuildpacksCIPipelineUpdateCommand
     #{pipeline_specific_config}
     "}
 
-    system "#{fly_cmd}"
+    puts fly_cmd
+    # system "#{fly_cmd}"
   end
 end
