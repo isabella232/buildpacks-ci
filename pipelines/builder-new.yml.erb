@@ -1,0 +1,215 @@
+<%
+  require 'yaml'
+  config = YAML.load_file(File.join(__dir__, 'config', 'builders-new.yml'))
+
+  stacks = config['stacks']
+  builders = config['builders']
+  all_cnbs = config['cnbs']
+  cnbs = all_cnbs.select{|cnb, data| data["public"]}
+  piv_cnbs = all_cnbs.select{|cnb, data| data["private"]}
+%>
+---
+resource-types:
+  - name: registry-image-resource
+    type: docker-image
+    source:
+      repository: concourse/registry-image-resource
+      tag: latest
+
+resources:
+  # Github Repos
+  - name: buildpacks-ci
+    type: git
+    source:
+      uri: {{buildpacks-ci-git-uri-public}}
+      branch: master
+
+  - name: cnb-builder
+    type: git
+    source:
+      uri: https://github.com/cloudfoundry/cnb-builder
+      branch: master
+
+  - name: p-cnb-builder
+    type: git
+    source:
+      uri: git@github.com:pivotal-cf/p-cnb-builder
+      private_key: {{cf-buildpacks-eng-github-ssh-key}}
+      branch: master
+
+<% all_cnbs.each do |cnb_name, data| %>
+  - name: <%= cnb_name %>-cnb-release
+    type: git
+    check_every: 15m # to avoid thundering herd of cnb autobumping
+    source:
+      uri: <%= data['git_repo'] %>
+      private_key: {{cf-buildpacks-eng-github-ssh-key}}
+      tag_filter: "v*"
+<% end %>
+
+  - name: packager
+    type: git
+    source:
+      uri: https://github.com/cloudfoundry/libcfbuildpack
+      branch: master
+
+  - name: pack-release
+    type: github-release
+    source:
+      user: buildpack
+      repository: pack
+      access_token: {{buildpacks-github-token}}
+      globs: ['*-linux.tgz']
+
+  - name: cnb-lifecycle-release
+    type: github-release
+    source:
+      repository: lifecycle
+      user: buildpack
+      access_token: {{buildpacks-github-token}}
+
+  # Versions
+<% builders.each do |_, builder_data| %>
+  - name: <%= builder_data["version-key"] %>-version
+    type: semver
+    source:
+      initial_version: 0.0.1
+      bucket: cnb-versions
+      key: builder/<%= builder_data["version-key"] %>
+      access_key_id: {{pivotal-offline-buildpacks-s3-access-key}}
+      secret_access_key: {{pivotal-offline-buildpacks-s3-secret-key}}
+<% end %>
+
+#Need to make builder-image for each builder
+<% builders.each do |builder, builder_data| %>
+  # Docker Images
+  - name: <%= builder_data["private"] ? "pivotal-":""%>builder-image
+    type: registry-image
+    source:
+      repository: <% builder_data["repository"] %>
+      tag: <%= builder_data["stack"] %>
+      username: <%= builder_data["private"] ? "_json_key":"{{buildpacks-docker-username}}"%>
+      password: <%= builder_data["private"] ? "{{gcp-service-account-key}}":"{{buildpacks-docker-password}}"%>
+
+  - name: <%= builder_data["private"] ? "pivotal-":""%>builder-rc-image
+    type: registry-image
+    source:
+      repository: gcr.io:443/cf-buildpacks/p-rc
+      tag: <%= builder %>
+      username: _json_key
+      password: {{gcp-service-account-key}}
+<% end %>
+
+<% stacks.each do |stack, tag| %>
+  <% %w(build run).each do |image| %>
+  - name: <%= stack %>-<%= image %>-cnb-image
+    type: registry-image
+    source:
+      repository: cloudfoundry/<%= image %>
+      tag: <%= tag %>-cnb
+      email: {{buildpacks-docker-user-email}}
+      username: {{buildpacks-docker-username}}
+      password: {{buildpacks-docker-password}}
+  <% end %>
+<% end %>
+
+jobs:
+<% builders.each do |builder, builder_data|
+ all_cnb_hash = builder_data["private"] ? piv_cnbs : cnbs
+ cnb_hash = all_cnb_hash.reject{|cnb, data| data.fetch("skip_stack",[]).include? builder_data.fetch("stack")} %>
+  - name: create-<%= builder %>-rc
+    plan:
+      - in_parallel:
+          - get: <%= builder_data["stack"] %>-build-cnb-image
+            trigger: true
+          - get: <%= builder_data["stack"] %>-run-cnb-image
+            trigger: true
+            <% cnb_hash.keys.each do |cnb_name| %>
+          - get: <%= cnb_name %>-cnb
+            resource: <%= cnb_name %>-cnb-release
+            <% end %>
+          - get: cnb-builder
+  <% if builder_data["private"] %>
+            resource: p-cnb-builder
+  <% end %>
+          - get: pack
+            resource: pack-release
+            trigger: true
+          - get: packager
+          - get: buildpacks-ci
+          - get: version
+            resource: <%= builder_data.fetch("version-key") %>-version
+          - get: lifecycle
+            resource: cnb-lifecycle-release
+      - task: get-cnb-sources
+        config:
+          platform: linux
+          image_resource:
+            type: docker-image
+            source:
+              repository: cfbuildpacks/ci
+          inputs:
+    <% cnb_hash.keys.each do |cnb_name| %>
+            - name: <%= cnb_name %>-cnb
+    <% end %>
+          outputs:
+            - name: sources
+          run:
+            path: bash
+            args:
+              - -cl
+              - |
+    <% cnb_hash.keys.each do |cnb_name| %>
+                cp -r <%= cnb_name %>-cnb sources/<%= cnb_name %>-cnb
+    <% end %>
+      - task: create-builder-image
+        file: buildpacks-ci/tasks/create-builder/task.yml
+        privileged: true
+        params:
+            <% (builder_data['builder-image-params'] || []).each do |key, value| %>
+            <%= key %>: <%= value%>
+            <% end %>
+          FINAL: true
+      - put: <%= builder_data["private"] ? "pivotal-":""%>builder-rc-image
+        params:
+          additional_tags: release-tag/name
+          image: builder-image/builder.tgz
+
+  - name: test-<%= builder %>-rc
+      - task: smoke-test-builder
+        file: buildpacks-ci/tasks/test-builder/task.yml
+        privileged: true
+        params:
+          STACK: <%= builder_data["stack"] %>
+          REPO: <%= builder_data.fetch("builder-image-params",[]).fetch("REPO") %>
+          RUN_IMAGE: <%= builder_data.fetch("builder-image-params",[]).fetch("RUN_IMAGE") %>
+
+  - name: ship-<%= builder %>
+      - put: <%= builder_data["private"] ? "pivotal-":""%>builder-image
+        params:
+          additional_tags: release-tag/name
+          load_file: builder-image/builder.tgz
+          load_repository: <%= builder_data.fetch("builder-image-params",[]).fetch("REPO") %> # must match REPO
+          load_tag: <%= builder_data["stack"] %>
+          tag_file: tag/name
+          tag_as_latest: <%= builder_data["stack"] == "cflinuxfs3" %>
+      - put: <%= builder_data.fetch("version-key") %>-version
+        params:
+          bump: patch
+<% end %>
+
+groups:
+  - name: all
+    jobs:
+        <% builders.keys.each do |builder_name| %>
+#      - smoke-test-<%#= builder_name %>
+#      - release-<%#= builder_name %>
+    <% end %>
+
+
+    <% builders.keys.each do |builder_name| %>
+  - name: <%= builder_name %>
+    jobs:
+#      - smoke-test-<%#= builder_name %>
+#      - release-<%#= builder_name %>
+    <% end %>
