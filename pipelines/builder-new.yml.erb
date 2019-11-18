@@ -201,9 +201,9 @@ jobs:
         file: buildpacks-ci/tasks/test-builder/task.yml
         privileged: true
         params:
-          STACK: <%= builder_data["stack"] %>
+          STACK: <%= builder %>
           REPO: gcr.io/cf-buildpacks/builder-rcs
-          RUN_IMAGE: <%= builder_data.fetch("builder-image-params",[]).fetch("RUN_IMAGE") %> # Do we need this? Why?
+          RUN_IMAGE: <%= builder_data.fetch("builder-image-params",[]).fetch("RUN_IMAGE") %> # Why do we need this?
 
   - name: ship-<%= builder %>-builder
     plan:
