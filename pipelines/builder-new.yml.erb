@@ -100,7 +100,7 @@ resources:
   - name: <%= builder %>-rc-image
     type: registry-image
     source:
-      repository: gcr.io:443/cf-buildpacks/builder-rcs
+      repository: gcr.io/cf-buildpacks/builder-rcs
       tag: <%= builder %>
       username: _json_key
       password: {{gcp-service-account-key}}
@@ -113,7 +113,6 @@ resources:
     source:
       repository: cloudfoundry/<%= image %>
       tag: <%= tag %>-cnb
-      email: {{buildpacks-docker-user-email}}
       username: {{buildpacks-docker-username}}
       password: {{buildpacks-docker-password}}
   <% end %>
@@ -145,6 +144,8 @@ jobs:
   <% end %>
           - get: version
             resource: <%= builder_data.fetch("version-key") %>-version
+            params:
+              pre: rc
       - task: get-cnb-sources
         config:
           platform: linux
@@ -175,14 +176,17 @@ jobs:
   <% end %>
       - put: <%= builder %>-rc-image
         params:
-          additional_tags: release-tag/name #TODO: MAKE THIS BE THE ACTUAL NAME OF CNB with version!!!!
+          additional_tags: tag/name
           image: builder-image/builder.tgz
-      - put: version
-        resource: <%= builder_data.fetch("version-key") %>-version # TODO: BUMP THE VERSION APPROPRIATELY
+#      - put: version
+#        resource: <%#= builder_data.fetch("version-key") %>-version
+#        file: version/version
 
   - name: test-<%= builder %>-builder-rc
     plan:
-      - get: <%= builder %>-rc-image
+      - get: buildpacks-ci
+      - get: builder-image
+        resource: <%= builder %>-rc-image
         trigger: true
         passed: [create-<%= builder %>-builder-rc]
         params:
@@ -198,11 +202,12 @@ jobs:
         privileged: true
         params:
           STACK: <%= builder_data["stack"] %>
-          REPO: <%= builder_data.fetch("builder-image-params",[]).fetch("REPO") %>
+          REPO: gcr.io/cf-buildpacks/builder-rcs
           RUN_IMAGE: <%= builder_data.fetch("builder-image-params",[]).fetch("RUN_IMAGE") %> # Do we need this? Why?
 
   - name: ship-<%= builder %>-builder
     plan:
+      - get: buildpacks-ci
       - get: <%= builder %>-rc-image
         passed: [test-<%= builder %>-builder-rc]
         params:
@@ -211,9 +216,15 @@ jobs:
         resource: <%= builder_data.fetch("version-key") %>-version
         params:
           bump: final
+          pre: <%= builder %>
+          pre_without_version: true
+      - task: write-tags-list
+        file: buildpacks-ci/tasks/create-builder/task.yml
+        params:
+          TAGS: <%= "#{builder_data['stack']} #{stacks[builder_data['stack']]} #{builder_data['latest']? 'latest' : ''}" %>
       - put: <%= builder %>-builder-image
         params:
-          additional_tags:
+          additional_tags: tags/tags
           image: <%= builder %>-rc-image
       - put: version
         resource: <%= builder_data.fetch("version-key") %>-version

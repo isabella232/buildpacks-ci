@@ -31,6 +31,7 @@ builders:
     private: false
     version-key: cflinuxfs3
     repository: cloudfoundry/cnb
+    latest: true
     builder-image-params:
       REPO: cloudfoundry/cnb
       STACK: "org.cloudfoundry.stacks.cflinuxfs3"
@@ -41,7 +42,7 @@ builders:
     stack: bionic
     private: true
     version-key: bionic-piv
-    repository: gcr.io:443/cf-buildpacks/p-cnb-builder # port needed for private repos
+    repository: gcr.io/cf-buildpacks/p-cnb-builder
     builder-image-params:
       REPO: p-cnb-builder
       STACK: "io.buildpacks.stacks.bionic"
@@ -52,7 +53,8 @@ builders:
     stack: cflinuxfs3
     private: true
     version-key: cflinuxfs3-piv
-    repository: gcr.io:443/cf-buildpacks/p-cnb-builder # port needed for private repos
+    repository: gcr.io/cf-buildpacks/p-cnb-builder
+    latest: true
     builder-image-params:
       REPO: p-cnb-builder
       STACK: "org.cloudfoundry.stacks.cflinuxfs3"
