@@ -1,0 +1,9 @@
+[metadata]
+
+  [[metadata.runtime-to-sdks]]
+    runtime-version = "1.1.13"
+    sdks = ["1.1.801", "1.1.701", "1.1.605", "1.1.508"]
+
+  [[metadata.runtime-to-sdks]]
+    runtime-version = "2.1.13"
+    sdks = ["2.1.508", "2.1.605", "2.1.606", "2.1.701", "2.1.801"]

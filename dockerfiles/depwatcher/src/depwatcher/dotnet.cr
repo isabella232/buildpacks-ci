@@ -126,6 +126,7 @@ module Depwatcher
   end
 
   class DotnetSdk < DotnetBase
+    # override in(): call super(), get runtime-version and write to output_dir
     def get_versions(releases, version_filter)
       version_filter = version_filter.chomp("X")
       releases.reject { |r| r.sdk.nil? }.map { |r| r.sdk.not_nil!.version }.select { |version| version.starts_with? version_filter }
