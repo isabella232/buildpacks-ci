@@ -33,12 +33,12 @@ resources:
 
 <% cnbs.each do |cnb, cnb_data| %>
   - name: <%= cnb %>-cnb-release
-    type: git
+    type: github-release
     check_every: 15m # to avoid thundering herd of cnb autobumping
     source:
-      uri: <%= cnb_data['git_repo'] %>
-      private_key: ((cf-buildpacks-eng-github-ssh-key))
-      tag_filter: 'v*'
+      owner: <%= cnb_data['git_owner'] %>
+      repository: <%= cnb_data['git_repo'] %>
+      access_token: ((buildpacks-github-token))
 <% end %>
 
   - name: packager
@@ -140,6 +140,8 @@ jobs:
   <% cnbs_for_builder(cnbs, builder_data).each do |cnb| %>
         - get: <%= cnb %>-cnb
           resource: <%= cnb %>-cnb-release
+          params:
+            include_source_tarball: true
   <% end %>
         - get: cnb-builder
         - get: version
@@ -162,7 +164,8 @@ jobs:
               - -cl
               - |
   <% cnbs_for_builder(cnbs, builder_data).each do |cnb| %>
-                cp -r <%= cnb %>-cnb sources/
+                mkdir sources/<%= cnb %>-cnb
+                tar -C sources/<%= cnb %>-cnb --strip-components=1 -xf <%= cnb %>-cnb/source.tar.gz
   <% end %>
       - task: create-builder-image
         image: ci-image
