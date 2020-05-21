@@ -7,3 +7,10 @@ v3_stacks:
 v3_dep_ids: {}
 v3_dep_names:
   some-dep: Some Dep
+dependencies:
+  some-dep:
+    mixins:
+      bionic:
+      - mixin1
+      - build:mixin2
+      - run:mixin3

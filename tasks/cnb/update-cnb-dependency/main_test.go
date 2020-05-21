@@ -95,7 +95,7 @@ func testUpdateCNBDependencyTask(t *testing.T, when spec.G, it spec.S) {
 			require.NoError(t, err, string(taskOutput))
 		})
 
-		it("updates the dep in the buildpack.toml deps and retains existing arbitrary metadata", func() {
+		it.Focus("updates the dep in the buildpack.toml deps and retains existing arbitrary metadata", func() {
 			buildpackTOML := decodeBuildpackTOML(t, outputDir)
 			assert.Equal(t, "./scripts/build.sh", buildpackTOML.Metadata[helpers.PrePackageKey])
 			assert.Equal(t, "random", buildpackTOML.Metadata["random"])
@@ -191,6 +191,11 @@ func testUpdateCNBDependencyTask(t *testing.T, when spec.G, it spec.S) {
 					DeprecationDate: deprecationDate2040,
 				},
 			}, deps)
+
+			assert.Equal(t, []helpers.Stack{
+				{ID: "org.cloudfoundry.stacks.cflinuxfs3"},
+				{ID: "io.buildpacks.stacks.bionic", Mixins: []string{"mixin1", "build:mixin2", "run:mixin3"}},
+			}, buildpackTOML.Stacks)
 		})
 
 		it("retains existing buildpack info", func() {

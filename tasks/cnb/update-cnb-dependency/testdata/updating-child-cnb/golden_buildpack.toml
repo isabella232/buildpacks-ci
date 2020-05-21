@@ -98,3 +98,4 @@ api = "0.2"
 
 [[stacks]]
   id = "io.buildpacks.stacks.bionic"
+  mixins = ["mixin1", "build:mixin2", "run:mixin3"]
